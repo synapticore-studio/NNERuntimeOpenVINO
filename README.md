@@ -1,2 +1,2 @@
 # NNERuntimeOpenVINO
-Intel's Unreal Engine OpenVINO EP for ORT
+Intel's Unreal Engine OpenVINO plugin for NNE.
