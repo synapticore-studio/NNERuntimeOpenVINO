@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "NNERuntimeOpenVINO",
+	"Description": "OpenVINO runtime for the Neural Network Engine (NNE). Provides optimized interfaces for CPU, GPU, and NPU.",
+	"Category": "ML",
+	"CreatedBy": "Intel Corporation.",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "NNERuntimeOpenVINO",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [ "Win64", "Linux" ]
+		}
+	]
+}
