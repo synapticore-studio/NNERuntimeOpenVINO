@@ -26,6 +26,10 @@
 
 #include "openvino/c/ov_core.h"
 
+#include "NNEModelData.h"
+#include "NNEStatus.h"
+#include "NNERuntimeRunSync.h"
+
 bool IsFileSupported(const FString& FileType);
 
 bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName);
@@ -35,3 +39,7 @@ void ReleasePorts(TArray<ov_output_const_port_t*>& Ports);
 void ReleaseShapes(TArray<ov_shape_t>& Shapes);
 
 void ReleaseTensors(TArray<ov_tensor_t*>& Tensors);
+
+bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName);
+
+UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel);

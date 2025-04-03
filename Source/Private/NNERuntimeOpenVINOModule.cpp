@@ -25,6 +25,7 @@
 #include "NNERuntimeOpenVINOCpu.h"
 #include "NNERuntimeOpenVINONpu.h"
 #include "NNE.h"
+#include "NNERuntimeOpenVINOCommon.h"
 
 #include "Modules/ModuleManager.h"
 
@@ -65,14 +66,21 @@ void FNNERuntimeOpenVINO::StartupModule()
 		UE::NNE::RegisterRuntime(RuntimeCPUInterface);
 	}
 
-	// NNE runtime ORT Npu startup
-	NNERuntimeOpenVINONpu = NewObject<UNNERuntimeOpenVINONpu>();
-	if (NNERuntimeOpenVINONpu.IsValid())
+	if (SupportsDevice(*OVCore, TEXT("NPU")))
 	{
-		TWeakInterfacePtr<INNERuntime> RuntimeNPUInterface(NNERuntimeOpenVINONpu.Get());
+		// NNE runtime ORT Npu startup
+		NNERuntimeOpenVINONpu = NewObject<UNNERuntimeOpenVINONpu>();
+		if (NNERuntimeOpenVINONpu.IsValid())
+		{
+			TWeakInterfacePtr<INNERuntime> RuntimeNPUInterface(NNERuntimeOpenVINONpu.Get());
 
-		NNERuntimeOpenVINONpu->AddToRoot();
-		UE::NNE::RegisterRuntime(RuntimeNPUInterface);
+			NNERuntimeOpenVINONpu->AddToRoot();
+			UE::NNE::RegisterRuntime(RuntimeNPUInterface);
+		}
+	}
+	else
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Warning, TEXT("No NPU device found, INNERuntimeNPU will be unavailable."));
 	}
 }
 
