@@ -22,6 +22,7 @@
 
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Extensions.Logging;
 using UnrealBuildTool;
 
 public class NNERuntimeOpenVINO : ModuleRules
@@ -66,10 +67,15 @@ public class NNERuntimeOpenVINO : ModuleRules
 		List<IEnumerable<string>> DllCollection = new List<IEnumerable<string>>();
 		DllCollection.Add(Directory.EnumerateFiles(OpenVINOLibPath, "*.dll"));
 
-		string TbbDllPath = Path.Combine(OpenVINOLibPath, "3rdparty", "tbb", "bin");
+		string TbbDllPath = Path.Combine(OpenVINOLibPath, "tbb");
 		DllCollection.Add(Directory.EnumerateFiles(TbbDllPath, "*.dll"));
 
 		PublicAdditionalLibraries.AddRange(OpenVINOLibs);
+
+		// Check for device plugins. If a device plugin DLL is not found, do not initialize that interface.
+		bool bHasCPUPlugin = false;
+		bool bHasGPUPlugin = false;
+		bool bHasNPUPlugin = false;
 
 		// Stage all the Dlls to the same ouput destination.
 		string OutputBasePath = Path.Combine("$(TargetOutputDir)", "OpenVINO");
@@ -77,9 +83,42 @@ public class NNERuntimeOpenVINO : ModuleRules
 		{
 			foreach(string Dll in Collection)
 			{
-				RuntimeDependencies.Add(Path.Combine(OutputBasePath, Path.GetFileName(Dll)), Dll);
+				string DLLFileName = Path.GetFileName(Dll);
+				RuntimeDependencies.Add(Path.Combine(OutputBasePath, DLLFileName), Dll);
+
+				if(DLLFileName.Contains("cpu_plugin"))
+				{
+					bHasCPUPlugin = true;
+				}
+				else if(DLLFileName.Contains("gpu_plugin"))
+				{
+					bHasGPUPlugin = true;
+				}
+				else if(DLLFileName.Contains("npu_plugin"))
+				{
+					bHasNPUPlugin = true;
+				}
 			}
 		}
-		
+
+		if(bHasCPUPlugin)
+		{
+			PrivateDefinitions.Add("OPENVINO_CPU_PLUGIN");
+		}
+
+		if (bHasGPUPlugin)
+		{
+			PrivateDefinitions.Add("OPENVINO_GPU_PLUGIN");
+		}
+
+		if (bHasNPUPlugin)
+		{
+			PrivateDefinitions.Add("OPENVINO_NPU_PLUGIN");
+		}
+
+		if (!bHasCPUPlugin && !bHasGPUPlugin && !bHasNPUPlugin)
+		{
+			Logger.LogWarning("No Device plugins found. None of the interfaces will be available.");
+		}
 	}
 }

@@ -56,6 +56,7 @@ void FNNERuntimeOpenVINO::StartupModule()
 
 	LogDevices();
 
+#ifdef OPENVINO_CPU_PLUGIN
 	// NNE runtime ORT Cpu startup
 	NNERuntimeOpenVINOCpu = NewObject<UNNERuntimeOpenVINOCpu>();
 	if (NNERuntimeOpenVINOCpu.IsValid())
@@ -65,7 +66,9 @@ void FNNERuntimeOpenVINO::StartupModule()
 		NNERuntimeOpenVINOCpu->AddToRoot();
 		UE::NNE::RegisterRuntime(RuntimeCPUInterface);
 	}
+#endif
 
+#ifdef OPENVINO_NPU_PLUGIN
 	if (SupportsDevice(*OVCore, TEXT("NPU")))
 	{
 		// NNE runtime ORT Npu startup
@@ -82,6 +85,7 @@ void FNNERuntimeOpenVINO::StartupModule()
 	{
 		UE_LOG(LogNNERuntimeOpenVINO, Warning, TEXT("No NPU device found, INNERuntimeNPU will be unavailable."));
 	}
+#endif
 }
 
 void FNNERuntimeOpenVINO::ShutdownModule()
@@ -91,6 +95,7 @@ void FNNERuntimeOpenVINO::ShutdownModule()
 		ov_core_free(OVCore);
 	}
 
+#ifdef OPENVINO_NPU_PLUGIN
 	// NNE runtime ORT Npu shutdown
 	if (NNERuntimeOpenVINOCpu.IsValid())
 	{
@@ -100,7 +105,9 @@ void FNNERuntimeOpenVINO::ShutdownModule()
 		NNERuntimeOpenVINOCpu->RemoveFromRoot();
 		NNERuntimeOpenVINOCpu.Reset();
 	}
+#endif
 
+#ifdef OPENVINO_CPU_PLUGIN
 	// NNE runtime ORT Cpu shutdown
 	if (NNERuntimeOpenVINONpu.IsValid())
 	{
@@ -110,6 +117,7 @@ void FNNERuntimeOpenVINO::ShutdownModule()
 		NNERuntimeOpenVINOCpu->RemoveFromRoot();
 		NNERuntimeOpenVINOCpu.Reset();
 	}
+#endif
 
 	UE_LOG(LogNNERuntimeOpenVINO, Display, TEXT("Unloaded NNERuntimeOpenVINO"));
 }

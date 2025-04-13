@@ -371,4 +371,3 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 
 	return UE::NNE::EResultStatus::Ok;
 }
-
