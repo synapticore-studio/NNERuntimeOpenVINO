@@ -45,7 +45,7 @@ public class NNERuntimeOpenVINO : ModuleRules
 		);
 
 		// Include paths for OpenVINO.
-		string OpenVINOIncludePath = Path.Combine(ModuleDirectory, "openvino");
+		string OpenVINOIncludePath = Path.Combine(ModuleDirectory, "..", "openvino");
 		PrivateIncludePaths.Add(OpenVINOIncludePath);
 
 		// OpenVINO/TBB Dlls

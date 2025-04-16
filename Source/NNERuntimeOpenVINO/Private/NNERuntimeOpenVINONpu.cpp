@@ -49,27 +49,43 @@ FModelInstanceOpenVINONpu::~FModelInstanceOpenVINONpu()
 bool FModelInstanceOpenVINONpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData)
 {
 	const FString DeviceName(TEXT("NPU"));
-	return InitModelInstance(ModelData, Model, CompiledModel, DeviceName);
+	if (!InitModelInstance(ModelData, Model, CompiledModel, DeviceName))
+	{
+		return false;
+	}
+
+	bool bResult = true;
+
+	if (!InitModelTensorDescs(InputSymbolicTensors, OutputSymbolicTensors, Model))
+	{
+		bResult = false;
+		ov_compiled_model_free(CompiledModel);
+		ov_model_free(Model);
+		CompiledModel = nullptr;
+		Model = nullptr;
+	}
+
+	return bResult;
 }
 
 TConstArrayView<UE::NNE::FTensorDesc> FModelInstanceOpenVINONpu::GetInputTensorDescs() const
 {
-	return TConstArrayView<UE::NNE::FTensorDesc>();
+	return InputSymbolicTensors;
 }
 
 TConstArrayView<UE::NNE::FTensorDesc> FModelInstanceOpenVINONpu::GetOutputTensorDescs() const
 {
-	return TConstArrayView<UE::NNE::FTensorDesc>();
+	return OutputSymbolicTensors;
 }
 
 TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINONpu::GetInputTensorShapes() const
 {
-	return TConstArrayView<UE::NNE::FTensorShape>();
+	return InputTensorShapes;
 }
 
 TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINONpu::GetOutputTensorShapes() const
 {
-	return TConstArrayView<UE::NNE::FTensorShape>();
+	return OutputTensorShapes;
 }
 
 UE::NNE::EResultStatus FModelInstanceOpenVINONpu::SetInputTensorShapes(TConstArrayView<UE::NNE::FTensorShape> InInputShapes)
@@ -80,8 +96,23 @@ UE::NNE::EResultStatus FModelInstanceOpenVINONpu::SetInputTensorShapes(TConstArr
 		return UE::NNE::EResultStatus::Fail;
 	}
 
-	InputTensorShapes = InInputShapes;
+	if (InInputShapes.Num() != InputSymbolicTensors.Num())
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Input shape sizes don't match."));
+		return UE::NNE::EResultStatus::Fail;
+	}
 
+	for (int32 i = 0; i < InInputShapes.Num(); ++i)
+	{
+		const UE::NNE::FTensorDesc SymbolicDesc = InputSymbolicTensors[i];
+		if (!InInputShapes[i].IsCompatibleWith(SymbolicDesc.GetShape()))
+		{
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Input shape tensor [%s] doesn't match input tensor [%d]."), *SymbolicDesc.GetName(), i);
+			return UE::NNE::EResultStatus::Fail;
+		}
+	}
+
+	InputTensorShapes = InInputShapes;
 	return UE::NNE::EResultStatus::Ok;
 }
 

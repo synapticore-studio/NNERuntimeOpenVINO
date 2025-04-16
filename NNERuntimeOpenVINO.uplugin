@@ -17,6 +17,11 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"PlatformAllowList": [ "Win64", "Linux" ]
+		},
+		{
+			"Name": "NNERuntimeOpenVINOEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	]
 }

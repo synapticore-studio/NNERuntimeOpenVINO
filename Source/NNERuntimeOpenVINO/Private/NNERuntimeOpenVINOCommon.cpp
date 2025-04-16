@@ -26,9 +26,11 @@
 
 bool IsFileSupported(const FString& FileType)
 {
-	return (FileType.Compare("onnx", ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare("pdmodel", ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare("tflite", ESearchCase::IgnoreCase) == 0);
+	return (FileType.Compare(TEXT("onnx"), ESearchCase::IgnoreCase) == 0)
+		|| (FileType.Compare(TEXT("pb"), ESearchCase::IgnoreCase) == 0)
+		|| (FileType.Compare(TEXT("pdmodel"), ESearchCase::IgnoreCase) == 0)
+		|| (FileType.Compare(TEXT("tflite"), ESearchCase::IgnoreCase) == 0)
+		|| (FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0);
 }
 
 bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName)
@@ -54,6 +56,40 @@ bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName)
 	return false;
 }
 
+ENNETensorDataType OpenVINOTypeToNNEType(ov_element_type_e ElementType)
+{
+	switch (ElementType)
+	{
+	case ov_element_type_e::BOOLEAN:
+		return ENNETensorDataType::Boolean;
+	case ov_element_type_e::F16:
+		return ENNETensorDataType::Half;
+	case ov_element_type_e::F32:
+		return ENNETensorDataType::Float;
+	case ov_element_type_e::F64:
+		return ENNETensorDataType::Double;
+	case ov_element_type_e::I8:
+		return ENNETensorDataType::Int8;
+	case ov_element_type_e::I16:
+		return ENNETensorDataType::Int16;
+	case ov_element_type_e::I32:
+		return ENNETensorDataType::Int32;
+	case ov_element_type_e::I64:
+		return ENNETensorDataType::Int64;
+	case ov_element_type_e::U8:
+		return ENNETensorDataType::UInt8;
+	case ov_element_type_e::U16:
+		return ENNETensorDataType::UInt16;
+	case ov_element_type_e::U32:
+		return ENNETensorDataType::UInt32;
+	case ov_element_type_e::U64:
+		return ENNETensorDataType::UInt64;
+	case ov_element_type_e::BF16:
+		return ENNETensorDataType::BFloat16;
+	}
+	return ENNETensorDataType::None;
+}
+
 void ReleasePorts(TArray<ov_output_const_port_t*>& Ports)
 {
 	for (ov_output_const_port_t*& Port : Ports)
@@ -70,6 +106,14 @@ void ReleaseShapes(TArray<ov_shape_t>& Shapes)
 	for (ov_shape_t& Shape : Shapes)
 	{
 		ov_shape_free(&Shape);
+	}
+}
+
+void ReleasePartialShapes(TArray<ov_partial_shape_t>& Shapes)
+{
+	for (ov_partial_shape_t& Shape : Shapes)
+	{
+		ov_partial_shape_free(&Shape);
 	}
 }
 
@@ -101,17 +145,15 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model
 	}
 
 	ov_core_t& OVCore = OVModule->OpenVINOInstance();
-	if (ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), NULL, &Model))
+	if (!SupportsDevice(OVCore, DeviceName))
 	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to read the model."));
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("[%s] device not found."), *DeviceName);
 		return false;
 	}
 
-	if (!SupportsDevice(OVCore, DeviceName))
+	if (ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), NULL, &Model))
 	{
-		ov_model_free(Model);
-		Model = nullptr;
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("[%s] device not found."), *DeviceName);
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to read the model."));
 		return false;
 	}
 
@@ -122,6 +164,133 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to compile the model."));
 		return false;
 	}
+
+	return true;
+}
+
+bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE::FTensorDesc>& OutDescs, ov_model_t*& Model)
+{
+	size_t InputSize = 0;
+	size_t OutputSize = 0;
+	if (ov_model_inputs_size(Model, &InputSize) || ov_model_outputs_size(Model, &OutputSize))
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Couldn't get input/Output size for model."));
+		return false;
+	}
+
+	TArray<ov_output_const_port_t*> InputPorts;
+	TArray<ov_partial_shape_t> InputPartialShapes;
+
+	for (size_t i = 0; i < InputSize; ++i)
+	{
+		ov_output_const_port_t*& InputPort = InputPorts.AddZeroed_GetRef();
+		if (ov_model_const_input_by_index(Model, i, &InputPort))
+		{
+			ReleasePorts(InputPorts);
+			ReleasePartialShapes(InputPartialShapes);
+			InDescs.Empty();
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get input config."));
+			return false;
+		}
+
+		ov_element_type_e InputType{};
+		if (ov_port_get_element_type(InputPort, &InputType))
+		{
+			ReleasePorts(InputPorts);
+			ReleasePartialShapes(InputPartialShapes);
+			InDescs.Empty();
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get input type."));
+			return false;
+		}
+
+		ov_partial_shape_t& InputShape = InputPartialShapes.AddZeroed_GetRef();
+		if (ov_port_get_partial_shape(InputPort, &InputShape))
+		{
+			ReleasePorts(InputPorts);
+			ReleasePartialShapes(InputPartialShapes);
+			InDescs.Empty();
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get input partial shape."));
+			return false;
+		}
+
+		ENNETensorDataType DataType = OpenVINOTypeToNNEType(InputType);
+
+		TArray<int32> SymbolicShape;
+		for (int32 j = 0; j < InputShape.rank.min; j++)
+		{
+			if (ov_dimension_is_dynamic(InputShape.dims[j]) || InputShape.dims[j].min != InputShape.dims[j].max)
+			{
+				SymbolicShape.Add(-1);
+			}
+			else
+			{
+				SymbolicShape.Add(InputShape.dims[j].min);
+			}
+		}
+
+		UE::NNE::FTensorDesc TensorDesc = UE::NNE::FTensorDesc::Make("", UE::NNE::FSymbolicTensorShape::Make(SymbolicShape), DataType);
+		InDescs.Add(TensorDesc);
+	}
+
+	ReleasePorts(InputPorts);
+	ReleasePartialShapes(InputPartialShapes);
+
+	TArray<ov_output_const_port_t*> OutputPorts;
+	TArray<ov_partial_shape_t> OutputPartialShapes;
+
+	for (size_t i = 0; i < OutputSize; ++i)
+	{
+		ov_output_const_port_t*& OutputPort = OutputPorts.AddZeroed_GetRef();
+		if (ov_model_const_output_by_index(Model, i, &OutputPort))
+		{
+			ReleasePorts(OutputPorts);
+			ReleasePartialShapes(OutputPartialShapes);
+			OutDescs.Empty();
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get output config."));
+			return false;
+		}
+
+		ov_element_type_e OutputType{};
+		if (ov_port_get_element_type(OutputPort, &OutputType))
+		{
+			ReleasePorts(OutputPorts);
+			ReleasePartialShapes(OutputPartialShapes);
+			OutDescs.Empty();
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get output type."));
+			return false;
+		}
+
+		ov_partial_shape_t& OutputShape = OutputPartialShapes.AddZeroed_GetRef();
+		if (ov_port_get_partial_shape(OutputPort, &OutputShape))
+		{
+			ReleasePorts(OutputPorts);
+			ReleasePartialShapes(OutputPartialShapes);
+			OutDescs.Empty();
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get output partial shape."));
+			return false;
+		}
+
+		ENNETensorDataType DataType = OpenVINOTypeToNNEType(OutputType);
+
+		TArray<int32> SymbolicShape;
+		for (int32 j = 0; j < OutputShape.rank.min; j++)
+		{
+			if (ov_dimension_is_dynamic(OutputShape.dims[j]) || OutputShape.dims[j].min != OutputShape.dims[j].max)
+			{
+				SymbolicShape.Add(-1);
+			}
+			else
+			{
+				SymbolicShape.Add(OutputShape.dims[j].min);
+			}
+		}
+
+		UE::NNE::FTensorDesc TensorDesc = UE::NNE::FTensorDesc::Make("", UE::NNE::FSymbolicTensorShape::Make(SymbolicShape), DataType);
+		OutDescs.Add(TensorDesc);
+	}
+
+	ReleasePorts(OutputPorts);
+	ReleasePartialShapes(OutputPartialShapes);
 
 	return true;
 }
@@ -139,15 +308,6 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Invalid model."));
 		return UE::NNE::EResultStatus::Fail;
 	}
-
-	FNNERuntimeOpenVINO* OVModule = FModuleManager::GetModulePtr<FNNERuntimeOpenVINO>(FNNERuntimeOpenVINO::ModuleName());
-	if (!OVModule)
-	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Couldn't find NNERuntimeOpenVINO module."));
-		return UE::NNE::EResultStatus::Fail;
-	}
-
-	ov_core_t& OVInstance = OVModule->OpenVINOInstance();
 
 	ov_infer_request_t* InferRequest = nullptr;
 	if (ov_compiled_model_create_infer_request(CompiledModel, &InferRequest))
