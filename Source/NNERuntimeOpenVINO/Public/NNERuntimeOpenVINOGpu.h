@@ -25,7 +25,7 @@
 #include "CoreMinimal.h"
 
 #include "NNERuntime.h"
-#include "NNERuntimeCPU.h"
+#include "NNERuntimeGPU.h"
 #include "NNEStatus.h"
 #include "NNERuntimeRunSync.h"
 #include "NNETypes.h"
@@ -40,13 +40,13 @@ THIRD_PARTY_INCLUDES_START
 #include "openvino/c/ov_model.h"
 THIRD_PARTY_INCLUDES_END
 
-#include "NNERuntimeOpenVINOCpu.generated.h"
+#include "NNERuntimeOpenVINOGpu.generated.h"
 
-class FModelInstanceOpenVINOCpu : public UE::NNE::IModelInstanceCPU
+class FModelInstanceOpenVINOGpu : public UE::NNE::IModelInstanceGPU
 {
 public:
-	FModelInstanceOpenVINOCpu() = default;
-	virtual ~FModelInstanceOpenVINOCpu();
+	FModelInstanceOpenVINOGpu() = default;
+	virtual ~FModelInstanceOpenVINOGpu();
 
 	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData);
 
@@ -69,13 +69,13 @@ private:
 	ov_compiled_model_t* CompiledModel = nullptr;
 };
 
-class FModelOpenVINOCpu : public UE::NNE::IModelCPU
+class FModelOpenVINOGpu : public UE::NNE::IModelGPU
 {
 public:
-	FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData);
-	virtual ~FModelOpenVINOCpu() = default;
+	FModelOpenVINOGpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData);
+	virtual ~FModelOpenVINOGpu() = default;
 
-	virtual TSharedPtr<UE::NNE::IModelInstanceCPU> CreateModelInstanceCPU() override;
+	virtual TSharedPtr<UE::NNE::IModelInstanceGPU> CreateModelInstanceGPU() override;
 
 private:
 	TSharedRef<UE::NNE::FSharedModelData> ModelData;
@@ -83,7 +83,7 @@ private:
 };
 
 UCLASS()
-class UNNERuntimeOpenVINOCpu : public UObject, public INNERuntime, public INNERuntimeCPU
+class UNNERuntimeOpenVINOGpu : public UObject, public INNERuntime, public INNERuntimeGPU
 {
 	GENERATED_BODY()
 
@@ -93,7 +93,7 @@ public:
 	static FGuid GUID;
 	static int32 Version;
 
-	virtual ~UNNERuntimeOpenVINOCpu() = default;
+	virtual ~UNNERuntimeOpenVINOGpu() = default;
 
 	virtual FString GetRuntimeName() const override;
 
@@ -101,6 +101,6 @@ public:
 	virtual TSharedPtr<UE::NNE::FSharedModelData> CreateModelData(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform) override;
 	virtual FString GetModelDataIdentifier(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform) const override;
 
-	virtual INNERuntimeCPU::ECanCreateModelCPUStatus CanCreateModelCPU(const TObjectPtr<UNNEModelData> ModelData) const override;
-	virtual TSharedPtr<UE::NNE::IModelCPU> CreateModelCPU(const TObjectPtr<UNNEModelData> ModelData) override;
+	virtual INNERuntimeGPU::ECanCreateModelGPUStatus CanCreateModelGPU(const TObjectPtr<UNNEModelData> ModelData) const override;
+	virtual TSharedPtr<UE::NNE::IModelGPU> CreateModelGPU(const TObjectPtr<UNNEModelData> ModelData) override;
 };

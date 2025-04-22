@@ -24,6 +24,7 @@
 
 #include "NNERuntimeOpenVINOCpu.h"
 #include "NNERuntimeOpenVINONpu.h"
+#include "NNERuntimeOpenVINOGpu.h"
 #include "NNE.h"
 #include "NNERuntimeOpenVINOCommon.h"
 
@@ -86,6 +87,25 @@ void FNNERuntimeOpenVINO::StartupModule()
 		UE_LOG(LogNNERuntimeOpenVINO, Warning, TEXT("No NPU device found, INNERuntimeNPU will be unavailable."));
 	}
 #endif
+
+#ifdef OPENVINO_GPU_PLUGIN
+	if (SupportsDevice(*OVCore, TEXT("GPU")))
+	{
+		// NNE runtime ORT Gpu startup
+		NNERuntimeOpenVINOGpu = NewObject<UNNERuntimeOpenVINOGpu>();
+		if (NNERuntimeOpenVINONpu.IsValid())
+		{
+			TWeakInterfacePtr<INNERuntime> RuntimeGPUInterface(NNERuntimeOpenVINOGpu.Get());
+
+			NNERuntimeOpenVINOGpu->AddToRoot();
+			UE::NNE::RegisterRuntime(RuntimeGPUInterface);
+		}
+	}
+	else
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Warning, TEXT("No GPU device found, INNERuntimeGPU will be unavailable."));
+	}
+#endif
 }
 
 void FNNERuntimeOpenVINO::ShutdownModule()
@@ -94,6 +114,18 @@ void FNNERuntimeOpenVINO::ShutdownModule()
 	{
 		ov_core_free(OVCore);
 	}
+
+#ifdef OPENVINO_GPU_PLUGIN
+	// NNE runtime ORT Gpu shutdown
+	if (NNERuntimeOpenVINOGpu.IsValid())
+	{
+		TWeakInterfacePtr<INNERuntime> RuntimeGPUInterface(NNERuntimeOpenVINOGpu.Get());
+
+		UE::NNE::UnregisterRuntime(RuntimeGPUInterface);
+		NNERuntimeOpenVINOGpu->RemoveFromRoot();
+		NNERuntimeOpenVINOGpu.Reset();
+	}
+#endif
 
 #ifdef OPENVINO_NPU_PLUGIN
 	// NNE runtime ORT Npu shutdown

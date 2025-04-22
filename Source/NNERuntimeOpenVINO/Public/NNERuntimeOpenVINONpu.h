@@ -36,7 +36,9 @@
 
 #include "NNERuntimeOpenVINOModule.h"
 
+THIRD_PARTY_INCLUDES_START
 #include "openvino/c/ov_model.h"
+THIRD_PARTY_INCLUDES_END
 
 #include "NNERuntimeOpenVINONpu.generated.h"
 
@@ -46,7 +48,7 @@ public:
 	FModelInstanceOpenVINONpu() = default;
 	virtual ~FModelInstanceOpenVINONpu();
 
-	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData);
+	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData);
 
 	virtual TConstArrayView<UE::NNE::FTensorDesc> GetInputTensorDescs() const override;
 	virtual TConstArrayView<UE::NNE::FTensorDesc> GetOutputTensorDescs() const override;
@@ -70,13 +72,14 @@ private:
 class FModelOpenVINONpu : public UE::NNE::IModelNPU
 {
 public:
-	FModelOpenVINONpu(TSharedRef<UE::NNE::FSharedModelData> InModelData);
+	FModelOpenVINONpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData);
 	virtual ~FModelOpenVINONpu() = default;
 
 	virtual TSharedPtr<UE::NNE::IModelInstanceNPU> CreateModelInstanceNPU() override;
 
 private:
 	TSharedRef<UE::NNE::FSharedModelData> ModelData;
+	TConstArrayView64<uint8> AdditionalData;
 };
 
 UCLASS()

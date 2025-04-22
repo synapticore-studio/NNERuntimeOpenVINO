@@ -27,8 +27,10 @@
 #include "NNEModelData.h"
 #include "NNERuntimeOpenVINOCommon.h"
 
+THIRD_PARTY_INCLUDES_START
 #include "openvino/c/ov_prepostprocess.h"
 #include "openvino/c/ov_tensor.h"
+THIRD_PARTY_INCLUDES_END
 
 FGuid UNNERuntimeOpenVINOCpu::GUID = FGuid((int32)'O', (int32)'V', (int32)'_', (int32)'C');
 int32 UNNERuntimeOpenVINOCpu::Version = 0x00000001;
@@ -46,10 +48,10 @@ FModelInstanceOpenVINOCpu::~FModelInstanceOpenVINOCpu()
 	}
 }
 
-bool FModelInstanceOpenVINOCpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData)
+bool FModelInstanceOpenVINOCpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData)
 {
 	const FString DeviceName(TEXT("CPU"));
-	if (!InitModelInstance(ModelData, Model, CompiledModel, DeviceName))
+	if (!InitModelInstance(ModelData, InAdditionalData, Model, CompiledModel, DeviceName))
 	{
 		return false;
 	}
@@ -121,15 +123,15 @@ UE::NNE::EResultStatus FModelInstanceOpenVINOCpu::RunSync(TConstArrayView<UE::NN
 	return ModelInfer(InInputTensors, InOutputTensors, Model, CompiledModel);
 }
 
-FModelOpenVINOCpu::FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData)
-	: ModelData(InModelData)
+FModelOpenVINOCpu::FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData)
+	: ModelData(InModelData), AdditionalData(InAdditionalData)
 {
 }
 
 TSharedPtr<UE::NNE::IModelInstanceCPU> FModelOpenVINOCpu::CreateModelInstanceCPU()
 {
 	TSharedPtr<FModelInstanceOpenVINOCpu> ModelInstance = MakeShared<FModelInstanceOpenVINOCpu>();
-	if (!ModelInstance->Init(ModelData))
+	if (!ModelInstance->Init(ModelData, AdditionalData))
 	{
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to initialize the model instance."));
 		return {};
@@ -198,6 +200,7 @@ TSharedPtr<UE::NNE::IModelCPU> UNNERuntimeOpenVINOCpu::CreateModelCPU(const TObj
 	}
 
 	TSharedRef<UE::NNE::FSharedModelData> SharedData = ModelData->GetModelData(GetRuntimeName()).ToSharedRef();
+	TConstArrayView64<uint8> AdditionalData = ModelData->GetAdditionalFileData(TEXT(""));
 
-	return MakeShared<FModelOpenVINOCpu>(SharedData);
+	return MakeShared<FModelOpenVINOCpu>(SharedData, AdditionalData);
 }

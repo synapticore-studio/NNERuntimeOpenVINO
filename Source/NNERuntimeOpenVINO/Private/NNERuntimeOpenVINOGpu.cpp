@@ -20,22 +20,20 @@
  * THE SOFTWARE.
  ******************************************************************************/
 
-#include "NNERuntimeOpenVINONpu.h"
+#include "NNERuntimeOpenVINOGpu.h"
 
 #include "Memory/SharedBuffer.h"
 #include "NNE.h"
 #include "NNEModelData.h"
 #include "NNERuntimeOpenVINOCommon.h"
 
-THIRD_PARTY_INCLUDES_START
 #include "openvino/c/ov_prepostprocess.h"
 #include "openvino/c/ov_tensor.h"
-THIRD_PARTY_INCLUDES_END
 
-FGuid UNNERuntimeOpenVINONpu::GUID = FGuid((int32)'O', (int32)'V', (int32)'_', (int32)'N');
-int32 UNNERuntimeOpenVINONpu::Version = 0x00000001;
+FGuid UNNERuntimeOpenVINOGpu::GUID = FGuid((int32)'O', (int32)'V', (int32)'_', (int32)'G');
+int32 UNNERuntimeOpenVINOGpu::Version = 0x00000001;
 
-FModelInstanceOpenVINONpu::~FModelInstanceOpenVINONpu()
+FModelInstanceOpenVINOGpu::~FModelInstanceOpenVINOGpu()
 {
 	if (CompiledModel)
 	{
@@ -48,9 +46,9 @@ FModelInstanceOpenVINONpu::~FModelInstanceOpenVINONpu()
 	}
 }
 
-bool FModelInstanceOpenVINONpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData)
+bool FModelInstanceOpenVINOGpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData)
 {
-	const FString DeviceName(TEXT("NPU"));
+	const FString DeviceName(TEXT("GPU"));
 	if (!InitModelInstance(ModelData, InAdditionalData, Model, CompiledModel, DeviceName))
 	{
 		return false;
@@ -70,27 +68,27 @@ bool FModelInstanceOpenVINONpu::Init(TSharedRef<UE::NNE::FSharedModelData> Model
 	return bResult;
 }
 
-TConstArrayView<UE::NNE::FTensorDesc> FModelInstanceOpenVINONpu::GetInputTensorDescs() const
+TConstArrayView<UE::NNE::FTensorDesc> FModelInstanceOpenVINOGpu::GetInputTensorDescs() const
 {
 	return InputSymbolicTensors;
 }
 
-TConstArrayView<UE::NNE::FTensorDesc> FModelInstanceOpenVINONpu::GetOutputTensorDescs() const
+TConstArrayView<UE::NNE::FTensorDesc> FModelInstanceOpenVINOGpu::GetOutputTensorDescs() const
 {
 	return OutputSymbolicTensors;
 }
 
-TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINONpu::GetInputTensorShapes() const
+TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINOGpu::GetInputTensorShapes() const
 {
 	return InputTensorShapes;
 }
 
-TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINONpu::GetOutputTensorShapes() const
+TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINOGpu::GetOutputTensorShapes() const
 {
 	return OutputTensorShapes;
 }
 
-UE::NNE::EResultStatus FModelInstanceOpenVINONpu::SetInputTensorShapes(TConstArrayView<UE::NNE::FTensorShape> InInputShapes)
+UE::NNE::EResultStatus FModelInstanceOpenVINOGpu::SetInputTensorShapes(TConstArrayView<UE::NNE::FTensorShape> InInputShapes)
 {
 	if (!Model)
 	{
@@ -118,19 +116,19 @@ UE::NNE::EResultStatus FModelInstanceOpenVINONpu::SetInputTensorShapes(TConstArr
 	return UE::NNE::EResultStatus::Ok;
 }
 
-UE::NNE::EResultStatus FModelInstanceOpenVINONpu::RunSync(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors)
+UE::NNE::EResultStatus FModelInstanceOpenVINOGpu::RunSync(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors)
 {
 	return ModelInfer(InInputTensors, InOutputTensors, Model, CompiledModel);
 }
 
-FModelOpenVINONpu::FModelOpenVINONpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData)
+FModelOpenVINOGpu::FModelOpenVINOGpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData)
 	: ModelData(InModelData), AdditionalData(InAdditionalData)
 {
 }
 
-TSharedPtr<UE::NNE::IModelInstanceNPU> FModelOpenVINONpu::CreateModelInstanceNPU()
+TSharedPtr<UE::NNE::IModelInstanceGPU> FModelOpenVINOGpu::CreateModelInstanceGPU()
 {
-	TSharedPtr<FModelInstanceOpenVINONpu> ModelInstance = MakeShared<FModelInstanceOpenVINONpu>();
+	TSharedPtr<FModelInstanceOpenVINOGpu> ModelInstance = MakeShared<FModelInstanceOpenVINOGpu>();
 	if (!ModelInstance->Init(ModelData, AdditionalData))
 	{
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to initialize the model instance."));
@@ -140,21 +138,21 @@ TSharedPtr<UE::NNE::IModelInstanceNPU> FModelOpenVINONpu::CreateModelInstanceNPU
 	return ModelInstance;
 }
 
-FString UNNERuntimeOpenVINONpu::GetRuntimeName() const
+FString UNNERuntimeOpenVINOGpu::GetRuntimeName() const
 {
-	return TEXT("NNERuntimeOpenVINONpu");
+	return TEXT("NNERuntimeOpenVINOGpu");
 }
 
-INNERuntime::ECanCreateModelDataStatus UNNERuntimeOpenVINONpu::CanCreateModelData(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform) const
+INNERuntime::ECanCreateModelDataStatus UNNERuntimeOpenVINOGpu::CanCreateModelData(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform) const
 {
 	return (!FileData.IsEmpty() && IsFileSupported(FileType)) ? ECanCreateModelDataStatus::Ok : ECanCreateModelDataStatus::FailFileIdNotSupported;
 }
 
-TSharedPtr<UE::NNE::FSharedModelData> UNNERuntimeOpenVINONpu::CreateModelData(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform)
+TSharedPtr<UE::NNE::FSharedModelData> UNNERuntimeOpenVINOGpu::CreateModelData(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform)
 {
 	if (CanCreateModelData(FileType, FileData, AdditionalFileData, FileId, TargetPlatform) != ECanCreateModelDataStatus::Ok)
 	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Cannot create the NPU model data with id %s (Filetype: %s)"), *FileId.ToString(EGuidFormats::Digits).ToLower(), *FileType);
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Cannot create the GPU model data with id %s (Filetype: %s)"), *FileId.ToString(EGuidFormats::Digits).ToLower(), *FileType);
 		return {};
 	}
 
@@ -163,12 +161,12 @@ TSharedPtr<UE::NNE::FSharedModelData> UNNERuntimeOpenVINONpu::CreateModelData(co
 	return SharedData;
 }
 
-FString UNNERuntimeOpenVINONpu::GetModelDataIdentifier(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform) const
+FString UNNERuntimeOpenVINOGpu::GetModelDataIdentifier(const FString& FileType, TConstArrayView64<uint8> FileData, const TMap<FString, TConstArrayView64<uint8>>& AdditionalFileData, const FGuid& FileId, const ITargetPlatform* TargetPlatform) const
 {
-	return FileId.ToString(EGuidFormats::Digits) + "-" + UNNERuntimeOpenVINONpu::GUID.ToString(EGuidFormats::Digits) + "-" + FString::FromInt(UNNERuntimeOpenVINONpu::Version);
+	return FileId.ToString(EGuidFormats::Digits) + "-" + UNNERuntimeOpenVINOGpu::GUID.ToString(EGuidFormats::Digits) + "-" + FString::FromInt(UNNERuntimeOpenVINOGpu::Version);
 }
 
-INNERuntimeNPU::ECanCreateModelNPUStatus UNNERuntimeOpenVINONpu::CanCreateModelNPU(const TObjectPtr<UNNEModelData> ModelData) const
+INNERuntimeGPU::ECanCreateModelGPUStatus UNNERuntimeOpenVINOGpu::CanCreateModelGPU(const TObjectPtr<UNNEModelData> ModelData) const
 {
 	check(ModelData != nullptr);
 
@@ -176,30 +174,31 @@ INNERuntimeNPU::ECanCreateModelNPUStatus UNNERuntimeOpenVINONpu::CanCreateModelN
 
 	if (!SharedData.IsValid())
 	{
-		return ECanCreateModelNPUStatus::Fail;
+		return ECanCreateModelGPUStatus::Fail;
 	}
 
 	TConstArrayView64<uint8> Data = SharedData->GetView();
 
 	if (Data.Num() == 0)
 	{
-		return ECanCreateModelNPUStatus::Fail;
+		return ECanCreateModelGPUStatus::Fail;
 	}
 
-	return ECanCreateModelNPUStatus::Ok;
+	return ECanCreateModelGPUStatus::Ok;
 }
 
-TSharedPtr<UE::NNE::IModelNPU> UNNERuntimeOpenVINONpu::CreateModelNPU(const TObjectPtr<UNNEModelData> ModelData)
+TSharedPtr<UE::NNE::IModelGPU> UNNERuntimeOpenVINOGpu::CreateModelGPU(const TObjectPtr<UNNEModelData> ModelData)
 {
 	check(ModelData != nullptr);
 
-	if (CanCreateModelNPU(ModelData) != ECanCreateModelNPUStatus::Ok)
+	if (CanCreateModelGPU(ModelData) != ECanCreateModelGPUStatus::Ok)
 	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Cannot create a NPU model from the model data with id %s"), *ModelData->GetFileId().ToString(EGuidFormats::Digits));
-		return TSharedPtr<UE::NNE::IModelNPU>();
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Cannot create a GPU model from the model data with id %s"), *ModelData->GetFileId().ToString(EGuidFormats::Digits));
+		return TSharedPtr<UE::NNE::IModelGPU>();
 	}
 
 	TSharedRef<UE::NNE::FSharedModelData> SharedData = ModelData->GetModelData(GetRuntimeName()).ToSharedRef();
 	TConstArrayView64<uint8> AdditionalData = ModelData->GetAdditionalFileData(TEXT(""));
-	return MakeShared<FModelOpenVINONpu>(SharedData, AdditionalData);
+
+	return MakeShared<FModelOpenVINOGpu>(SharedData, AdditionalData);
 }

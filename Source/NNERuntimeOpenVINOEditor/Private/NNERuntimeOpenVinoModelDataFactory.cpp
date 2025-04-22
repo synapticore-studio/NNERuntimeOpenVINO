@@ -13,11 +13,12 @@
 
 bool IsFileSupported(const FString& FileType)
 {
-	return (FileType.Compare(TEXT("onnx"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("pb"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("pdmodel"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("tflite"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0);
+	/*
+	* *.onnx -> NNERuntimeORT handles import
+	* *.pb/*.pdmodel/*.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
+	* *.xml -> OpenVINO IR is the only one we need to handle.
+	*/
+	return FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0;
 }
 
 UNNERuntimeOpenVINOModelDataFactory::UNNERuntimeOpenVINOModelDataFactory(const FObjectInitializer& ObjectInitializer) : UFactory(ObjectInitializer)
@@ -26,10 +27,12 @@ UNNERuntimeOpenVINOModelDataFactory::UNNERuntimeOpenVINOModelDataFactory(const F
 	bEditorImport = true;
 	SupportedClass = UNNEModelData::StaticClass();
 	ImportPriority = DefaultImportPriority;
+	/*
+	* *.onnx -> NNERuntimeORT handles import
+	* *.pb/*.pdmodel/*.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
+	* *.xml -> OpenVINO IR is the only one we need to handle.
+	*/
 	Formats.Add("xml;OpenVINO IR Format");
-	Formats.Add("pb;Tensorflow Format");
-	Formats.Add("tflite;Tensorflow Lite Format");
-	Formats.Add("pdmodel;PDPD Format");
 }
 
 UObject* UNNERuntimeOpenVINOModelDataFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
@@ -53,11 +56,10 @@ UObject* UNNERuntimeOpenVINOModelDataFactory::FactoryCreateFile(UClass* InClass,
 	}
 
 	TMap<FString, TConstArrayView64<uint8>> AdditionalBuffers;
+	TArray64<uint8> AdditionalData;
 
 	if (FileExtension.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0)
 	{
-		TArray64<uint8> AdditionalData;
-
 		const FString BinFilename(FPaths::ChangeExtension(Filename, "bin"));
 		if (!FFileHelper::LoadFileToArray(AdditionalData, *BinFilename))
 		{

@@ -24,12 +24,15 @@
 
 #include "Modules/ModuleInterface.h"
 
+THIRD_PARTY_INCLUDES_START
 #include "openvino/c/ov_core.h"
+THIRD_PARTY_INCLUDES_END
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNNERuntimeOpenVINO, Log, All);
 
 class UNNERuntimeOpenVINOCpu;
 class UNNERuntimeOpenVINONpu;
+class UNNERuntimeOpenVINOGpu;
 
 class FNNERuntimeOpenVINO : public IModuleInterface
 {
@@ -44,6 +47,7 @@ public:
 private:
 	TWeakObjectPtr<UNNERuntimeOpenVINOCpu> NNERuntimeOpenVINOCpu{ nullptr };
 	TWeakObjectPtr<UNNERuntimeOpenVINONpu> NNERuntimeOpenVINONpu{ nullptr };
+	TWeakObjectPtr<UNNERuntimeOpenVINOGpu> NNERuntimeOpenVINOGpu{ nullptr };
 
 	// It's perfectly valid to create multiple ov_core instances in a process but it's recommended to only create one.
 	ov_core_t* OVCore = nullptr;

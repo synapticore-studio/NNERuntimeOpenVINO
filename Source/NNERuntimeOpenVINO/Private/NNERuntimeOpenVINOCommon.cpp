@@ -26,10 +26,12 @@
 
 bool IsFileSupported(const FString& FileType)
 {
+	/*
+	* *.onnx -> NNERuntimeORT handles import
+	* *.pb/*.pdmodel/*.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
+	* *.xml -> OpenVINO IR is the only one we need to handle.
+	*/
 	return (FileType.Compare(TEXT("onnx"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("pb"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("pdmodel"), ESearchCase::IgnoreCase) == 0)
-		|| (FileType.Compare(TEXT("tflite"), ESearchCase::IgnoreCase) == 0)
 		|| (FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0);
 }
 
@@ -128,7 +130,7 @@ void ReleaseTensors(TArray<ov_tensor_t*>& Tensors)
 	}
 }
 
-bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName)
+bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName)
 {
 	FMemoryReaderView MemoryReader(ModelData->GetView());
 
@@ -151,7 +153,37 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model
 		return false;
 	}
 
-	if (ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), NULL, &Model))
+	ov_status_e LoadResult = ov_status_e::OK;
+	if (InAdditionalData.IsEmpty())
+	{
+		LoadResult = ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), NULL, &Model);
+	}
+	else 
+	{
+		// In the case of IR models, we must create a temporary Tensor as input.
+		// The data for the tensor comes from the asset so there is no additional allocation inside of OpenVINO.
+		ov_shape_t TempShape{};
+		int64_t Dims[1] = { (int64_t)InAdditionalData.NumBytes() };
+		if (ov_shape_create(1, Dims, &TempShape))
+		{
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to setup the IR model."));
+			return false;
+		}
+
+		ov_tensor_t* TempTensor = NULL;
+		if (ov_tensor_create_from_host_ptr(U8, TempShape, (void*)InAdditionalData.GetData(), &TempTensor))
+		{
+			ov_shape_free(&TempShape);
+			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to setup the IR model."));
+			return false;
+		}
+
+		LoadResult = ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), TempTensor, &Model);
+
+		ov_tensor_free(TempTensor);
+	}
+
+	if (LoadResult)
 	{
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to read the model."));
 		return false;
