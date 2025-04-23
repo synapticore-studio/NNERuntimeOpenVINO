@@ -1,17 +1,41 @@
 # NNERuntimeOpenVINO
 Intel's Unreal Engine OpenVINO plugin for NNE.
 
-## Selective Device Build
-By default the plugin includes support for all three NNE interfaces:
+## Device & Model Support
+The plugin supports all three NNE interfaces:
 1. INNERuntimeCPU
 2. INNERuntimeGPU
-3. INNERuntimeNPU
+3. INNERuntimeNPU 
 
-The total distributable size in Release is around 100MB. If you do not intend to use a given interface it's possible to reduce this size by excluding the dynamic libraries for those interfaces. 
+Supported model formats are:
+1. OpenVINO IR (*.xml + *.bin)
+2. ONNX (*.onnx)
+
+While OpenVINO supports additional formats not listed here, they must be converted to either IR or ONNX for runtime use by the plugin. OpenVINO provides Python support for converting models. The scripts for performing this are included in the standalone distribution: https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/download.html
+
+```
+import openvino as ov
+model = ov.convert_model("<input_path_to_model>")
+ov.save_model(model, "<output_path_to_model>")
+```
+
+For best results, please use the IR format. The IR format is optimized for OpenVINO and the devices it supports. Depending on the model and device, you can expect to see up to a 10x performance improvement using IR.
+
+ONNX model import is provided through the NNERuntimeORT plugin, which is only required for Editor builds. OpenVINO IR import is handled by the Editor component of this plugin. IR models must be imported as a pair of files with matching names and .xml, .bin extensions. Both model formats will be stored as NNEModelData blobs containing all model data.
+
+Models are read and compiled at runtime when the ModelInstance is created.
+
+## Platform Support
+Windows and Linux are supported. Prebuilt libraries can be found in:
+
+Binaries\openvino\\\<platform>
+
+## Selective Device Build
+The total distributable size in Release is around 100MB on Windows. If you do not intend to use a given interface it's possible to reduce this size by excluding the dynamic libraries for those interfaces.
 
 The device libraries can be found in the following location:
 
-Binaries\openvino\\<build_type>
+Binaries\openvino\\\<platform>\\<build_type>
 
 Device specific dynamic libraries are named as follows:
 1. openvino_intel_cpu_plugin
@@ -19,3 +43,6 @@ Device specific dynamic libraries are named as follows:
 3. openvino_intel_npu_plugin
 
 Simply delete the unwanted device libraries from the folder. The plugin build script will detect if a device library is present and selectively enable that interface. Please note that if you have already built your project and go back to remove one of these libraries, the build script cache will still attempt to search for it. In this case you either need to invalidate the plugin build script or rebuild your project.
+
+## Support
+Please refer to OpenVINO documentation for anything else not covered here: https://docs.openvino.ai/2025/index.html

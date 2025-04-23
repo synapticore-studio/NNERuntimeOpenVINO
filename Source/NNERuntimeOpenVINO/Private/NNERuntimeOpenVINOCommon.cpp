@@ -179,8 +179,9 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstAr
 		}
 
 		LoadResult = ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), TempTensor, &Model);
-
+		
 		ov_tensor_free(TempTensor);
+		ov_shape_free(&TempShape);
 	}
 
 	if (LoadResult)
