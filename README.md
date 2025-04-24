@@ -7,6 +7,10 @@ The plugin supports all three NNE interfaces:
 2. INNERuntimeGPU
 3. INNERuntimeNPU 
 
+In cases where there are multiple GPUs, it's possible to override the default selection using a configuration setting `MultiGpuPreference` found in `Config\DefaultNNERuntimeOpenVINO.ini`. Integrated GPU will always be index 0 if present.
+
+OpenVINO supports inference modes not present in NNE. To simplify NNE compatibility, it is currently not possible to select modes such as "AUTO", "HETERO", or "MULTI".
+
 Supported model formats are:
 1. OpenVINO IR (*.xml + *.bin)
 2. ONNX (*.onnx)
@@ -21,7 +25,7 @@ ov.save_model(model, "<output_path_to_model>")
 
 For best results, please use the IR format. The IR format is optimized for OpenVINO and the devices it supports. Depending on the model and device, you can expect to see up to a 10x performance improvement using IR.
 
-ONNX model import is provided through the NNERuntimeORT plugin, which is only required for Editor builds. OpenVINO IR import is handled by the Editor component of this plugin. IR models must be imported as a pair of files with matching names and .xml, .bin extensions. Both model formats will be stored as NNEModelData blobs containing all model data.
+ONNX model import is provided through the NNEEditor module, which is only required for Editor builds. OpenVINO IR import is handled by the Editor component of this plugin. IR models must be imported as a pair of files with matching names and .xml, .bin extensions. Both model formats will be stored as NNEModelData assets containing all model data.
 
 Models are read and compiled at runtime when the ModelInstance is created.
 
@@ -46,3 +50,6 @@ Simply delete the unwanted device libraries from the folder. The plugin build sc
 
 ## Support
 Please refer to OpenVINO documentation for anything else not covered here: https://docs.openvino.ai/2025/index.html
+
+## Special Thanks
+Nico Ranieri of Epic Games for all his help in getting this released.

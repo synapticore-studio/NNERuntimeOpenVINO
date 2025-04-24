@@ -58,6 +58,40 @@ bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName)
 	return false;
 }
 
+bool HasMultiGpu()
+{
+	// Load the model into OpenVINO
+	FNNERuntimeOpenVINO* OVModule = FModuleManager::GetModulePtr<FNNERuntimeOpenVINO>(FNNERuntimeOpenVINO::ModuleName());
+	if (!OVModule)
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Couldn't find NNERuntimeOpenVINO module."));
+		return false;
+	}
+
+	ov_core_t& OVCore = OVModule->OpenVINOInstance();
+
+	ov_available_devices_t AvailableDevices{};
+	if (ov_core_get_available_devices(&OVCore, &AvailableDevices))
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to fetch OpenVINO devices."));
+		return false;
+	}
+
+	const FString BaseName(TEXT("GPU"));
+	int32 NumGPUs = 0;
+	for (size_t i = 0; i < AvailableDevices.size; ++i)
+	{
+		const FString DeviceName(AvailableDevices.devices[i]);
+		if (DeviceName.Contains(BaseName))
+		{
+			NumGPUs++;
+		}
+	}
+
+	ov_available_devices_free(&AvailableDevices);
+	return NumGPUs > 1;
+}
+
 ENNETensorDataType OpenVINOTypeToNNEType(ov_element_type_e ElementType)
 {
 	switch (ElementType)

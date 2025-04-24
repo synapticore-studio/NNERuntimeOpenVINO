@@ -42,6 +42,20 @@ THIRD_PARTY_INCLUDES_END
 
 #include "NNERuntimeOpenVINOGpu.generated.h"
 
+UCLASS(config = NNERuntimeOpenVINO)
+class UNNERuntimeOpenVINOGpuSettings : public UObject
+{
+	GENERATED_BODY()
+
+public:
+
+	/** GPU override in cases where multiple GPUs are present. */
+	UPROPERTY(Config, EditAnywhere)
+	int32 MultiGpuPreference;
+
+private:
+};
+
 class FModelInstanceOpenVINOGpu : public UE::NNE::IModelInstanceGPU
 {
 public:
@@ -90,6 +104,7 @@ class UNNERuntimeOpenVINOGpu : public UObject, public INNERuntime, public INNERu
 private:
 
 public:
+
 	static FGuid GUID;
 	static int32 Version;
 

@@ -48,7 +48,18 @@ FModelInstanceOpenVINOGpu::~FModelInstanceOpenVINOGpu()
 
 bool FModelInstanceOpenVINOGpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData)
 {
-	const FString DeviceName(TEXT("GPU"));
+	FString DeviceName;
+	const UNNERuntimeOpenVINOGpuSettings* Settings = GetDefault<UNNERuntimeOpenVINOGpuSettings>();
+
+	if (Settings && Settings->MultiGpuPreference >= 0 && HasMultiGpu())
+	{
+		DeviceName = FString::Format(TEXT("GPU.{0}"), { Settings->MultiGpuPreference });
+	}
+	else
+	{
+		DeviceName = TEXT("GPU");
+	}
+
 	if (!InitModelInstance(ModelData, InAdditionalData, Model, CompiledModel, DeviceName))
 	{
 		return false;

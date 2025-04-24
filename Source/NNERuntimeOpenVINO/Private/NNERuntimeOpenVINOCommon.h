@@ -37,6 +37,8 @@ bool IsFileSupported(const FString& FileType);
 
 bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName);
 
+bool HasMultiGpu();
+
 ENNETensorDataType OpenVINOTypeToNNEType(ov_element_type_e ElementType);
 
 void ReleasePorts(TArray<ov_output_const_port_t*>& Ports);

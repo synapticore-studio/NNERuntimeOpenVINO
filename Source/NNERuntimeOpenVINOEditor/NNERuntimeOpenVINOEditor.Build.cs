@@ -37,7 +37,7 @@ public class NNERuntimeOpenVINOEditor : ModuleRules
 				"Engine",
 				"UnrealEd",
 				"NNE",
-				"NNERuntimeORT", // For importing ONNX files.
+				"NNEEditor", // For importing ONNX files.
 			}
 		);
 	}
