@@ -32,11 +32,13 @@ Models are read and compiled at runtime when the ModelInstance is created.
 ## Platform Support
 Windows and Linux are supported. For a full list of supported OS versions, please refer to: https://docs.openvino.ai/2025/about-openvino/release-notes-openvino/system-requirements.html
 
-Prebuilt libraries can be found in:
+Prebuilt libraries for the `2025.1.0` release can be found in:
 
-Binaries\openvino\\\<platform>
+`Binaries\openvino\<platform>`
 
-If the prebuilt libraries don't meet your needs, you may build OpenVINO from source and replace the ones provided. This will require a rebuild of the Plugin as the symbols are resolved at compile time. Linux shared libraries are versioned so you will need to make sure the proper symlinks are in setup when replacing those.
+The Linux libraries will need to be unzipped before building. This ensures symlinks are preserved.
+
+If the prebuilt libraries don't meet your needs, you may build OpenVINO from source and replace the ones provided. This will require a rebuild of the Plugin as the symbols are resolved at compile time. Linux shared libraries are versioned so make sure to preserve the symlinks when replacing those files.
 * Source: https://github.com/openvinotoolkit/openvino
 * Build Guide: https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build.md
 
@@ -58,7 +60,7 @@ The total distributable size in Release is around 100MB on Windows. If you do no
 
 The device libraries can be found in the following location:
 
-Binaries\openvino\\\<platform>\\<build_type>
+`Binaries\openvino\<platform>\<build_type>`
 
 Device specific dynamic libraries are named as follows:
 1. openvino_intel_cpu_plugin
