@@ -15,7 +15,7 @@ bool IsFileSupported(const FString& FileType)
 {
 	/*
 	* *.onnx -> NNERuntimeORT handles import
-	* *.pb/*.pdmodel/*.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
+	* *.pb, *.pdmodel, *.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
 	* *.xml -> OpenVINO IR is the only one we need to handle.
 	*/
 	return FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0;
@@ -29,7 +29,7 @@ UNNERuntimeOpenVINOModelDataFactory::UNNERuntimeOpenVINOModelDataFactory(const F
 	ImportPriority = DefaultImportPriority;
 	/*
 	* *.onnx -> NNERuntimeORT handles import
-	* *.pb/*.pdmodel/*.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
+	* *.pb, *.pdmodel, *.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
 	* *.xml -> OpenVINO IR is the only one we need to handle.
 	*/
 	Formats.Add("xml;OpenVINO IR Format");

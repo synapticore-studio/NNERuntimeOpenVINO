@@ -28,7 +28,7 @@ bool IsFileSupported(const FString& FileType)
 {
 	/*
 	* *.onnx -> NNERuntimeORT handles import
-	* *.pb/*.pdmodel/*.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
+	* *.pb, *.pdmodel, *.tflite -> Must be converted externally using Python. There is no C/C++ support for this.
 	* *.xml -> OpenVINO IR is the only one we need to handle.
 	*/
 	return (FileType.Compare(TEXT("onnx"), ESearchCase::IgnoreCase) == 0)

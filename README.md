@@ -30,9 +30,28 @@ ONNX model import is provided through the NNEEditor module, which is only requir
 Models are read and compiled at runtime when the ModelInstance is created.
 
 ## Platform Support
-Windows and Linux are supported. Prebuilt libraries can be found in:
+Windows and Linux are supported. For a full list of supported OS versions, please refer to: https://docs.openvino.ai/2025/about-openvino/release-notes-openvino/system-requirements.html
+
+Prebuilt libraries can be found in:
 
 Binaries\openvino\\\<platform>
+
+If the prebuilt libraries don't meet your needs, you may build OpenVINO from source and replace the ones provided. This will require a rebuild of the Plugin as the symbols are resolved at compile time. Linux shared libraries are versioned so you will need to make sure the proper symlinks are in setup when replacing those.
+* Source: https://github.com/openvinotoolkit/openvino
+* Build Guide: https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build.md
+
+### Drivers
+
+#### Windows
+Windows Update should automatically download the necessary drivers for NPU/GPU. If needed, you may either download those separately or using the Intel Driver & Support Assistant. The NPU driver does not currently come bundled with an installer.
+* NPU Driver: https://www.intel.com/content/www/us/en/download/794734/intel-npu-driver-windows.html
+* GPU Driver: https://www.intel.com/content/www/us/en/download/785597/intel-arc-iris-xe-graphics-windows.html
+* Driver & Support Assistant: https://www.intel.com/content/www/us/en/support/detect.html
+
+#### Linux
+Depending on the distro and build, you may or may not have the necessary drivers pre-installed. Please refer to your distro's documentation for how to obtain these.
+* NPU Driver: https://github.com/intel/linux-npu-driver
+* GPU Driver: https://www.intel.com/content/www/us/en/support/articles/000005520/graphics.html
 
 ## Selective Device Build
 The total distributable size in Release is around 100MB on Windows. If you do not intend to use a given interface it's possible to reduce this size by excluding the dynamic libraries for those interfaces.

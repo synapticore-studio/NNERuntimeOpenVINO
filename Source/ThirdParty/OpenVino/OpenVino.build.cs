@@ -42,6 +42,7 @@ public class OpenVino : ModuleRules
 		string OutputBasePath = Path.Combine("$(TargetOutputDir)", "OpenVINO", ConfigName);
 		OpenVINOLibPath = Path.Combine(OpenVINOLibPath, ConfigName);
 
+		// Link to *.lib or *.so to resolve external C symbols.
 		if (Target.Configuration == UnrealTargetConfiguration.Debug)
 		{
 			if(Target.Platform == UnrealTargetPlatform.Win64)
@@ -63,7 +64,8 @@ public class OpenVino : ModuleRules
 			}
 			else if(Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				// TODO: Add Linux libraries.
+				// Linux Debug libraries follow the same naming convention to the Release version.
+				OpenVINOLibs.Add(Path.Combine(OpenVINOLibPath, "openvino_c"));
 			}
 		}
 		else
@@ -74,7 +76,7 @@ public class OpenVino : ModuleRules
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				// TODO: Add Linux libraries.
+				OpenVINOLibs.Add(Path.Combine(OpenVINOLibPath, "openvino_c"));
 			}
 		}
 
@@ -89,7 +91,9 @@ public class OpenVino : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
-			// TODO: Add Linux libraries.
+			// Only need the base files, we don't copy versioned to the runtime directory.
+			DllCollection.Add(Directory.EnumerateFiles(OpenVINOLibPath, "*.so"));
+			DllCollection.Add(Directory.EnumerateFiles(TbbDllPath, "*.so"));
 		}
 
 		PublicAdditionalLibraries.AddRange(OpenVINOLibs);
