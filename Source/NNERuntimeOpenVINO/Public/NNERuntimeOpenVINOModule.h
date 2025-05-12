@@ -51,6 +51,10 @@ private:
 
 	// It's perfectly valid to create multiple ov_core instances in a process but it's recommended to only create one.
 	ov_core_t* OVCore = nullptr;
+	void* OpenVINODLL = nullptr;
+
+	bool LoadDLL();
+	void UnloadDLL();
 
 	void LogDevices();
 };

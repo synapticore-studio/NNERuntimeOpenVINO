@@ -58,7 +58,7 @@ bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName)
 	return false;
 }
 
-bool HasMultiGpu()
+bool HasMultiGpu(int32& OutGpuCount)
 {
 	// Load the model into OpenVINO
 	FNNERuntimeOpenVINO* OVModule = FModuleManager::GetModulePtr<FNNERuntimeOpenVINO>(FNNERuntimeOpenVINO::ModuleName());
@@ -88,6 +88,7 @@ bool HasMultiGpu()
 		}
 	}
 
+	OutGpuCount = NumGPUs;
 	ov_available_devices_free(&AvailableDevices);
 	return NumGPUs > 1;
 }
@@ -164,13 +165,41 @@ void ReleaseTensors(TArray<ov_tensor_t*>& Tensors)
 	}
 }
 
-bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName)
+bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName)
 {
 	FMemoryReaderView MemoryReader(ModelData->GetView());
 
-	int64 Offset = MemoryReader.Tell();
+	int64 FileDataSize = 0;
+	TConstArrayView64<uint8> FileData;
+	TConstArrayView64<uint8> WeightsData;
 
-	TConstArrayView64<uint8> FileData(ModelData->GetView().GetData() + Offset, ModelData->GetView().NumBytes() - Offset);
+	// Note that this is placed at the beginning of the data during cook.
+	bool bHasWeights;
+	MemoryReader << bHasWeights;
+
+	if (bHasWeights)
+	{
+		int64 WeightsDataSize = 0;
+		MemoryReader << FileDataSize;
+		MemoryReader << WeightsDataSize;
+
+		int64 FileDataOffset = MemoryReader.Tell();
+		int64 WeightsDataOffset = MemoryReader.Tell() + FileDataSize;
+
+		// Avoid reallocating data since it's already loaded.
+		FileData = TConstArrayView64<uint8>(ModelData->GetView().GetData() + FileDataOffset,
+			FileDataSize);
+
+		WeightsData = TConstArrayView64<uint8>(ModelData->GetView().GetData() + WeightsDataOffset,
+			WeightsDataSize);
+	}
+	else
+	{
+		int64 FileDataOffset = MemoryReader.Tell();
+		FileDataSize = ModelData->GetView().NumBytes() - FileDataOffset;
+		FileData = TConstArrayView64<uint8>(ModelData->GetView().GetData() + FileDataOffset,
+			FileDataSize);
+	}
 
 	// Load the model into OpenVINO
 	FNNERuntimeOpenVINO* OVModule = FModuleManager::GetModulePtr<FNNERuntimeOpenVINO>(FNNERuntimeOpenVINO::ModuleName());
@@ -188,7 +217,7 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstAr
 	}
 
 	ov_status_e LoadResult = ov_status_e::OK;
-	if (InAdditionalData.IsEmpty())
+	if (!bHasWeights)
 	{
 		LoadResult = ov_core_read_model_from_memory_buffer(&OVCore, (const char*)FileData.GetData(), FileData.Num(), NULL, &Model);
 	}
@@ -197,7 +226,7 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstAr
 		// In the case of IR models, we must create a temporary Tensor as input.
 		// The data for the tensor comes from the asset so there is no additional allocation inside of OpenVINO.
 		ov_shape_t TempShape{};
-		int64_t Dims[1] = { (int64_t)InAdditionalData.NumBytes() };
+		int64_t Dims[1] = { (int64_t)WeightsData.NumBytes() };
 		if (ov_shape_create(1, Dims, &TempShape))
 		{
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to setup the IR model."));
@@ -205,7 +234,7 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstAr
 		}
 
 		ov_tensor_t* TempTensor = NULL;
-		if (ov_tensor_create_from_host_ptr(U8, TempShape, (void*)InAdditionalData.GetData(), &TempTensor))
+		if (ov_tensor_create_from_host_ptr(U8, TempShape, (void*)WeightsData.GetData(), &TempTensor))
 		{
 			ov_shape_free(&TempShape);
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to setup the IR model."));

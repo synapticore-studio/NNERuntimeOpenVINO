@@ -48,10 +48,10 @@ FModelInstanceOpenVINOCpu::~FModelInstanceOpenVINOCpu()
 	}
 }
 
-bool FModelInstanceOpenVINOCpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData)
+bool FModelInstanceOpenVINOCpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData)
 {
 	const FString DeviceName(TEXT("CPU"));
-	if (!InitModelInstance(ModelData, InAdditionalData, Model, CompiledModel, DeviceName))
+	if (!InitModelInstance(ModelData, Model, CompiledModel, DeviceName))
 	{
 		return false;
 	}
@@ -123,15 +123,15 @@ UE::NNE::EResultStatus FModelInstanceOpenVINOCpu::RunSync(TConstArrayView<UE::NN
 	return ModelInfer(InInputTensors, InOutputTensors, Model, CompiledModel);
 }
 
-FModelOpenVINOCpu::FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData)
-	: ModelData(InModelData), AdditionalData(InAdditionalData)
+FModelOpenVINOCpu::FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData)
+	: ModelData(InModelData)
 {
 }
 
 TSharedPtr<UE::NNE::IModelInstanceCPU> FModelOpenVINOCpu::CreateModelInstanceCPU()
 {
 	TSharedPtr<FModelInstanceOpenVINOCpu> ModelInstance = MakeShared<FModelInstanceOpenVINOCpu>();
-	if (!ModelInstance->Init(ModelData, AdditionalData))
+	if (!ModelInstance->Init(ModelData))
 	{
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to initialize the model instance."));
 		return {};
@@ -158,7 +158,15 @@ TSharedPtr<UE::NNE::FSharedModelData> UNNERuntimeOpenVINOCpu::CreateModelData(co
 		return {};
 	}
 
-	FSharedBuffer SharedBuffer(FSharedBuffer::Clone(FileData.GetData(), FileData.NumBytes()));
+	bool bHasWeights = FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0;
+
+	TArray64<uint8> WrappedFileData;
+	FMemoryWriter64 MemoryWriter(WrappedFileData);
+	MemoryWriter << bHasWeights;
+	MemoryWriter.Serialize((void*)FileData.GetData(), FileData.NumBytes());
+
+	FSharedBuffer SharedBuffer(FSharedBuffer::Clone(WrappedFileData.GetData(), WrappedFileData.NumBytes()));
+	
 	TSharedPtr<UE::NNE::FSharedModelData> SharedData(MakeShared<UE::NNE::FSharedModelData>(SharedBuffer, 0));
 	return SharedData;
 }
@@ -200,7 +208,5 @@ TSharedPtr<UE::NNE::IModelCPU> UNNERuntimeOpenVINOCpu::CreateModelCPU(const TObj
 	}
 
 	TSharedRef<UE::NNE::FSharedModelData> SharedData = ModelData->GetModelData(GetRuntimeName()).ToSharedRef();
-	TConstArrayView64<uint8> AdditionalData = ModelData->GetAdditionalFileData(TEXT(""));
-
-	return MakeShared<FModelOpenVINOCpu>(SharedData, AdditionalData);
+	return MakeShared<FModelOpenVINOCpu>(SharedData);
 }

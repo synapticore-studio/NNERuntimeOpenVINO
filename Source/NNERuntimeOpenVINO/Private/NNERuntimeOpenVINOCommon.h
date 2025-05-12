@@ -37,7 +37,7 @@ bool IsFileSupported(const FString& FileType);
 
 bool SupportsDevice(ov_core_t& OVInstance, const FString& BaseName);
 
-bool HasMultiGpu();
+bool HasMultiGpu(int32& OutGpuCount);
 
 ENNETensorDataType OpenVINOTypeToNNEType(ov_element_type_e ElementType);
 
@@ -49,7 +49,7 @@ void ReleasePartialShapes(TArray<ov_partial_shape_t>& Shapes);
 
 void ReleaseTensors(TArray<ov_tensor_t*>& Tensors);
 
-bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName);
+bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName);
 
 bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE::FTensorDesc>& OutDescs, ov_model_t*& Model);
 

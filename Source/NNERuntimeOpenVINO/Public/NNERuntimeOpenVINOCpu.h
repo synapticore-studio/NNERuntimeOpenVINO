@@ -48,7 +48,7 @@ public:
 	FModelInstanceOpenVINOCpu() = default;
 	virtual ~FModelInstanceOpenVINOCpu();
 
-	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData);
+	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData);
 
 	virtual TConstArrayView<UE::NNE::FTensorDesc> GetInputTensorDescs() const override;
 	virtual TConstArrayView<UE::NNE::FTensorDesc> GetOutputTensorDescs() const override;
@@ -72,14 +72,13 @@ private:
 class FModelOpenVINOCpu : public UE::NNE::IModelCPU
 {
 public:
-	FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData);
+	FModelOpenVINOCpu(TSharedRef<UE::NNE::FSharedModelData> InModelData);
 	virtual ~FModelOpenVINOCpu() = default;
 
 	virtual TSharedPtr<UE::NNE::IModelInstanceCPU> CreateModelInstanceCPU() override;
 
 private:
 	TSharedRef<UE::NNE::FSharedModelData> ModelData;
-	TConstArrayView64<uint8> AdditionalData;
 };
 
 UCLASS()

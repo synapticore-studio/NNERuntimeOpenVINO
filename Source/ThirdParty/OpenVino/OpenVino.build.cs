@@ -34,37 +34,42 @@ public class OpenVino : ModuleRules
 		// Include paths for OpenVINO.
 		string OpenVinoIncludePath = Path.Combine(ModuleDirectory, "Internal");
 		PublicIncludePaths.Add(OpenVinoIncludePath);
-		
+
 		// OpenVINO/TBB Dlls
-		string OpenVINOLibPath = Path.Combine(PluginDirectory, "Binaries", "openvino", Target.Platform.ToString());
 		List<string> OpenVINOLibs = new List<string>();
 		string ConfigName = Target.Configuration == UnrealTargetConfiguration.Debug ? "Debug" : "Release";
-		string OutputBasePath = Path.Combine("$(TargetOutputDir)", "OpenVINO", ConfigName);
-		OpenVINOLibPath = Path.Combine(OpenVINOLibPath, ConfigName);
+		string OpenVINOSubDirPath = Path.Combine("Binaries", "openvino", Target.Platform.ToString(), ConfigName);
+		string OpenVINOLibPath = Path.Combine(PluginDirectory, OpenVINOSubDirPath);
+		string TbbSubDirPath = Path.Combine(OpenVINOSubDirPath, "tbb");
+		OpenVINOSubDirPath = OpenVINOSubDirPath.Replace(@"\", @"/");
+		TbbSubDirPath = TbbSubDirPath.Replace(@"\", @"/");
+		PublicDefinitions.Add($"OPENVINO_PATH=\"{OpenVINOSubDirPath}\"");
+		PublicDefinitions.Add($"OPENVINO_TBB_PATH=\"{TbbSubDirPath}\"");
 
 		// Link to *.lib or *.so to resolve external C symbols.
+		string TbbDllPath = Path.Combine(OpenVINOLibPath, "tbb");
 		if (Target.Configuration == UnrealTargetConfiguration.Debug)
 		{
-			if(Target.Platform == UnrealTargetPlatform.Win64)
+			if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
 				OpenVINOLibs.Add(Path.Combine(OpenVINOLibPath, "openvino_cd.lib"));
 
-				List<IEnumerable<string>> PDBCollection = new List<IEnumerable<string>>();
-				PDBCollection.Add(Directory.EnumerateFiles(OpenVINOLibPath, "*.pdb"));
-				PDBCollection.Add(Directory.EnumerateFiles(Path.Combine(OpenVINOLibPath, "tbb"), "*.pdb"));
+				List<IEnumerable<string>> PDBCollection = new List<IEnumerable<string>> {
+					Directory.EnumerateFiles(OpenVINOLibPath, "*.pdb"),
+					Directory.EnumerateFiles(TbbDllPath, "*.pdb")
+				};
 
 				foreach (IEnumerable<string> Collection in PDBCollection)
 				{
 					foreach (string PDB in Collection)
 					{
-						string PDBFileName = Path.GetFileName(PDB);
-						RuntimeDependencies.Add(Path.Combine(OutputBasePath, PDBFileName), PDB);
+						RuntimeDependencies.Add(PDB);
 					}
 				}
 			}
-			else if(Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				// Linux Debug libraries follow the same naming convention to the Release version.
+				// Linux Debug libraries follow the same naming convention as the Release version.
 				OpenVINOLibs.Add(Path.Combine(OpenVINOLibPath, "openvino_c"));
 			}
 		}
@@ -80,21 +85,14 @@ public class OpenVino : ModuleRules
 			}
 		}
 
-		string TbbDllPath = Path.Combine(OpenVINOLibPath, "tbb");
-
 		// Search OpenVINO Dlls and TBB Dlls.
-		List<IEnumerable<string>> DllCollection = new List<IEnumerable<string>>();
-		if (Target.Platform == UnrealTargetPlatform.Win64)
-		{
-			DllCollection.Add(Directory.EnumerateFiles(OpenVINOLibPath, "*.dll"));
-			DllCollection.Add(Directory.EnumerateFiles(TbbDllPath, "*.dll"));
-		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
-		{
-			// Only need the base files, we don't copy versioned to the runtime directory.
-			DllCollection.Add(Directory.EnumerateFiles(OpenVINOLibPath, "*.so"));
-			DllCollection.Add(Directory.EnumerateFiles(TbbDllPath, "*.so"));
-		}
+		// Only need the base files on Linux, we don't copy versioned to the runtime directory.
+		string PlatformDLLExtension = (Target.Platform == UnrealTargetPlatform.Win64) ? "*.dll" : "*.so";
+
+		List<IEnumerable<string>> DllCollection = new List<IEnumerable<string>> {
+			Directory.EnumerateFiles(OpenVINOLibPath, PlatformDLLExtension),
+			Directory.EnumerateFiles(TbbDllPath, PlatformDLLExtension)
+		};
 
 		PublicAdditionalLibraries.AddRange(OpenVINOLibs);
 
@@ -109,7 +107,8 @@ public class OpenVino : ModuleRules
 			foreach (string Dll in Collection)
 			{
 				string DLLFileName = Path.GetFileName(Dll);
-				RuntimeDependencies.Add(Path.Combine(OutputBasePath, DLLFileName), Dll);
+				RuntimeDependencies.Add(Dll);
+				PublicDelayLoadDLLs.Add(DLLFileName);
 
 				if (DLLFileName.Contains("cpu_plugin"))
 				{
@@ -122,6 +121,11 @@ public class OpenVino : ModuleRules
 				else if (DLLFileName.Contains("npu_plugin"))
 				{
 					bHasNPUPlugin = true;
+				}
+				else if(DLLFileName.Contains("openvino_c"))
+				{
+					// Special case for the base DLL we need to manually load.
+					PublicDefinitions.Add($"OPENVINO_DLL_NAME=\"{DLLFileName}\"");
 				}
 			}
 		}

@@ -56,24 +56,33 @@ UObject* UNNERuntimeOpenVINOModelDataFactory::FactoryCreateFile(UClass* InClass,
 	}
 
 	TMap<FString, TConstArrayView64<uint8>> AdditionalBuffers;
-	TArray64<uint8> AdditionalData;
+	TArray64<uint8> WeightData;
 
 	if (FileExtension.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0)
 	{
 		const FString BinFilename(FPaths::ChangeExtension(Filename, "bin"));
-		if (!FFileHelper::LoadFileToArray(AdditionalData, *BinFilename))
+		if (!FFileHelper::LoadFileToArray(WeightData, *BinFilename))
 		{
 			UE_LOG(LogNNERuntimeOpenVINOEditor, Error, TEXT("Failed to load additional binary xml data from file '%s'"), *BinFilename);
 			GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, nullptr);
 			return nullptr;
 		}
-
-		AdditionalBuffers.Emplace(TEXT(""), AdditionalData);
 	}
+
+	// FileData contains the XML model, WeightData contains the BIN weights.
+	// Store everything into one contiguous blob for easy serialization in packaged builds.
+	TArray64<uint8> SerializedFileData;
+	FMemoryWriter64 MemoryWriter(SerializedFileData, true);
+	int64 FileDataBytes = FileData.NumBytes();
+	int64 WeightDataBytes = WeightData.NumBytes();
+	MemoryWriter.Serialize(&FileDataBytes, sizeof(FileDataBytes));
+	MemoryWriter.Serialize(&WeightDataBytes, sizeof(WeightDataBytes));
+	MemoryWriter.Serialize(FileData.GetData(), FileDataBytes);
+	MemoryWriter.Serialize(WeightData.GetData(), WeightDataBytes);
 
 	UNNEModelData* ModelData = NewObject<UNNEModelData>(InParent, InClass, InName, Flags);
 	check(ModelData)
-	ModelData->Init(FileExtension, FileData, AdditionalBuffers);
+	ModelData->Init(FileExtension, SerializedFileData);
 
 	GEditor->GetEditorSubsystem<UImportSubsystem>()->BroadcastAssetPostImport(this, ModelData);
 

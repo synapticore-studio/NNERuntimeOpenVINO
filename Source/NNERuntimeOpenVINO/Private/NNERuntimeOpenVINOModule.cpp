@@ -29,6 +29,7 @@
 #include "NNERuntimeOpenVINOCommon.h"
 
 #include "Modules/ModuleManager.h"
+#include "Interfaces/IPluginManager.h"
 
 IMPLEMENT_MODULE(FNNERuntimeOpenVINO, NNERuntimeOpenVINO)
 
@@ -37,6 +38,12 @@ DEFINE_LOG_CATEGORY(LogNNERuntimeOpenVINO);
 void FNNERuntimeOpenVINO::StartupModule()
 {
 	UE_LOG(LogNNERuntimeOpenVINO, Display, TEXT("Loaded NNERuntimeOpenVINO"));
+
+	if (!LoadDLL())
+	{
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to load the OpenVINO DLLs."));
+		return;
+	}
 
 	ov_version_t OVVersion{};
 	if (ov_get_openvino_version(&OVVersion))
@@ -151,12 +158,35 @@ void FNNERuntimeOpenVINO::ShutdownModule()
 	}
 #endif
 
+	UnloadDLL();
+
 	UE_LOG(LogNNERuntimeOpenVINO, Display, TEXT("Unloaded NNERuntimeOpenVINO"));
 }
 
 FName FNNERuntimeOpenVINO::ModuleName()
 {
 	return TEXT("NNERuntimeOpenVINO");
+}
+
+bool FNNERuntimeOpenVINO::LoadDLL()
+{
+	const FString PluginDir(IPluginManager::Get().FindPlugin(TEXT("NNERuntimeOpenVINO"))->GetBaseDir());
+	IFileManager& FileManager = IFileManager::Get();
+	const FString OpenVINODLLPath(FileManager.ConvertToAbsolutePathForExternalAppForRead(*FPaths::Combine(PluginDir, OPENVINO_PATH)));
+	const FString TBBDLLPath(FileManager.ConvertToAbsolutePathForExternalAppForRead(*FPaths::Combine(PluginDir, OPENVINO_TBB_PATH)));
+	const FString OpenVINODLLFilePath(FPaths::Combine(OpenVINODLLPath, OPENVINO_DLL_NAME));
+	FPlatformProcess::AddDllDirectory(*OpenVINODLLPath);
+	FPlatformProcess::AddDllDirectory(*TBBDLLPath);
+	OpenVINODLL = FPlatformProcess::GetDllHandle(*OpenVINODLLFilePath);
+	return OpenVINODLL != nullptr;
+}
+
+void FNNERuntimeOpenVINO::UnloadDLL()
+{
+	if (OpenVINODLL)
+	{
+		FPlatformProcess::FreeDllHandle(OpenVINODLL);
+	}
 }
 
 void FNNERuntimeOpenVINO::LogDevices()

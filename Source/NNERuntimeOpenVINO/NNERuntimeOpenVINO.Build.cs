@@ -34,13 +34,14 @@ public class NNERuntimeOpenVINO : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"NNE",
+				"Projects"
 			}
 		);
 
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"NNE",
 				"OpenVino"
 			}
 		);

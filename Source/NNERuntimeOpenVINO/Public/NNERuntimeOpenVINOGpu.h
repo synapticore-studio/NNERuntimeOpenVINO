@@ -62,7 +62,7 @@ public:
 	FModelInstanceOpenVINOGpu() = default;
 	virtual ~FModelInstanceOpenVINOGpu();
 
-	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData);
+	bool Init(TSharedRef<UE::NNE::FSharedModelData> ModelData);
 
 	virtual TConstArrayView<UE::NNE::FTensorDesc> GetInputTensorDescs() const override;
 	virtual TConstArrayView<UE::NNE::FTensorDesc> GetOutputTensorDescs() const override;
@@ -86,14 +86,13 @@ private:
 class FModelOpenVINOGpu : public UE::NNE::IModelGPU
 {
 public:
-	FModelOpenVINOGpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData);
+	FModelOpenVINOGpu(TSharedRef<UE::NNE::FSharedModelData> InModelData);
 	virtual ~FModelOpenVINOGpu() = default;
 
 	virtual TSharedPtr<UE::NNE::IModelInstanceGPU> CreateModelInstanceGPU() override;
 
 private:
 	TSharedRef<UE::NNE::FSharedModelData> ModelData;
-	TConstArrayView64<uint8> AdditionalData;
 };
 
 UCLASS()

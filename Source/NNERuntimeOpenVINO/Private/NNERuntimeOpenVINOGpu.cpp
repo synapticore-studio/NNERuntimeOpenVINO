@@ -46,21 +46,33 @@ FModelInstanceOpenVINOGpu::~FModelInstanceOpenVINOGpu()
 	}
 }
 
-bool FModelInstanceOpenVINOGpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData, TConstArrayView64<uint8> InAdditionalData)
+bool FModelInstanceOpenVINOGpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData)
 {
 	FString DeviceName;
-	const UNNERuntimeOpenVINOGpuSettings* Settings = GetDefault<UNNERuntimeOpenVINOGpuSettings>();
 
-	if (Settings && Settings->MultiGpuPreference >= 0 && HasMultiGpu())
+	int32 NumGPUs = 0;
+	if (HasMultiGpu(NumGPUs))
 	{
-		DeviceName = FString::Format(TEXT("GPU.{0}"), { Settings->MultiGpuPreference });
+		const UNNERuntimeOpenVINOGpuSettings* Settings = GetDefault<UNNERuntimeOpenVINOGpuSettings>();
+		if (Settings && Settings->MultiGpuPreference >= 0)
+		{
+			// Clamp GPU selection to avoid attempting to get a GPU that doesn't exist.
+			int32 GPUSelect = FMath::Min(NumGPUs, Settings->MultiGpuPreference);
+			DeviceName = FString::Format(TEXT("GPU.{0}"), { GPUSelect });
+		}
+		else
+		{
+			// Fallback to iGPU if no GPU preference in a multi-gpu setup.
+			// If no iGPU is present, this will select the first available dGPU.
+			DeviceName = TEXT("GPU.0");
+		}
 	}
 	else
 	{
 		DeviceName = TEXT("GPU");
 	}
 
-	if (!InitModelInstance(ModelData, InAdditionalData, Model, CompiledModel, DeviceName))
+	if (!InitModelInstance(ModelData, Model, CompiledModel, DeviceName))
 	{
 		return false;
 	}
@@ -132,15 +144,15 @@ UE::NNE::EResultStatus FModelInstanceOpenVINOGpu::RunSync(TConstArrayView<UE::NN
 	return ModelInfer(InInputTensors, InOutputTensors, Model, CompiledModel);
 }
 
-FModelOpenVINOGpu::FModelOpenVINOGpu(TSharedRef<UE::NNE::FSharedModelData> InModelData, TConstArrayView64<uint8> InAdditionalData)
-	: ModelData(InModelData), AdditionalData(InAdditionalData)
+FModelOpenVINOGpu::FModelOpenVINOGpu(TSharedRef<UE::NNE::FSharedModelData> InModelData)
+	: ModelData(InModelData)
 {
 }
 
 TSharedPtr<UE::NNE::IModelInstanceGPU> FModelOpenVINOGpu::CreateModelInstanceGPU()
 {
 	TSharedPtr<FModelInstanceOpenVINOGpu> ModelInstance = MakeShared<FModelInstanceOpenVINOGpu>();
-	if (!ModelInstance->Init(ModelData, AdditionalData))
+	if (!ModelInstance->Init(ModelData))
 	{
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to initialize the model instance."));
 		return {};
@@ -167,7 +179,15 @@ TSharedPtr<UE::NNE::FSharedModelData> UNNERuntimeOpenVINOGpu::CreateModelData(co
 		return {};
 	}
 
-	FSharedBuffer SharedBuffer(FSharedBuffer::Clone(FileData.GetData(), FileData.NumBytes()));
+	bool bHasWeights = FileType.Compare(TEXT("xml"), ESearchCase::IgnoreCase) == 0;
+
+	TArray64<uint8> WrappedFileData;
+	FMemoryWriter64 MemoryWriter(WrappedFileData);
+	MemoryWriter << bHasWeights;
+	MemoryWriter.Serialize((void*)FileData.GetData(), FileData.NumBytes());
+
+	FSharedBuffer SharedBuffer(FSharedBuffer::Clone(WrappedFileData.GetData(), WrappedFileData.NumBytes()));
+	
 	TSharedPtr<UE::NNE::FSharedModelData> SharedData(MakeShared<UE::NNE::FSharedModelData>(SharedBuffer, 0));
 	return SharedData;
 }
@@ -209,7 +229,5 @@ TSharedPtr<UE::NNE::IModelGPU> UNNERuntimeOpenVINOGpu::CreateModelGPU(const TObj
 	}
 
 	TSharedRef<UE::NNE::FSharedModelData> SharedData = ModelData->GetModelData(GetRuntimeName()).ToSharedRef();
-	TConstArrayView64<uint8> AdditionalData = ModelData->GetAdditionalFileData(TEXT(""));
-
-	return MakeShared<FModelOpenVINOGpu>(SharedData, AdditionalData);
+	return MakeShared<FModelOpenVINOGpu>(SharedData);
 }
