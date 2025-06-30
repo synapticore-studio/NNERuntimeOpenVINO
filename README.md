@@ -1,3 +1,8 @@
+<a href="https://scan.coverity.com/projects/nneruntimeopenvino">
+  <img alt="Coverity Scan Build Status"
+       src="https://scan.coverity.com/projects/32021/badge.svg"/>
+</a>
+
 # NNERuntimeOpenVINO
 Intel's Unreal Engine OpenVINO plugin for NNE.
 
