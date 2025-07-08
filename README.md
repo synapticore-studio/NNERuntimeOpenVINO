@@ -1,6 +1,6 @@
-<a href="https://scan.coverity.com/projects/nneruntimeopenvino">
+<a href="https://scan.coverity.com/projects/nneruntimeopenvino_covscan">
   <img alt="Coverity Scan Build Status"
-       src="https://scan.coverity.com/projects/32021/badge.svg"/>
+       src="https://scan.coverity.com/projects/32039/badge.svg"/>
 </a>
 
 # NNERuntimeOpenVINO
