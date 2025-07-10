@@ -28,6 +28,7 @@
 #include "NNE.h"
 #include "NNEModelData.h"
 #include "NNERuntimeOpenVINOCommon.h"
+#include "Serialization/MemoryWriter.h"
 
 #include "openvino/c/ov_prepostprocess.h"
 #include "openvino/c/ov_tensor.h"

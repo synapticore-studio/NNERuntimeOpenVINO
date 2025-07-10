@@ -72,7 +72,13 @@ Device specific dynamic libraries are named as follows:
 2. openvino_intel_gpu_plugin
 3. openvino_intel_npu_plugin
 
-Simply delete the unwanted device libraries from the folder. The plugin build script will detect if a device library is present and selectively enable that interface. Please note that if you have already built your project and go back to remove one of these libraries, the build script cache will still attempt to search for it. In this case you either need to invalidate the plugin build script or rebuild your project.
+Simply delete the unwanted device libraries from the folder. The plugin build script will detect if a device library is present and selectively enable that interface. Please note that if you have already built your project and go back to remove one of these libraries, the build script cache will still attempt to search for it. In this case you either need to invalidate the plugin build script or rebuild.
+
+To rebuild just the plugin, you can use the following command:
+
+`
+Engine\Build\BatchFiles\RunUAT.bat BuildPlugin -plugin=MyProject\Plugins\NNERuntimeOpenVINO\NNERuntimeOpenVINO.uplugin -package=PackageDir\NNERuntimeOpenVINO -targetplatforms=Win64 -clean
+`
 
 ## Support
 Please refer to OpenVINO documentation for anything else not covered here: https://docs.openvino.ai/2025/index.html

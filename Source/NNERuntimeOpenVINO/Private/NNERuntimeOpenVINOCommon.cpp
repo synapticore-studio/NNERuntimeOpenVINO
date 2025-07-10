@@ -24,6 +24,9 @@
 
 #include "NNERuntimeOpenVINOCommon.h"
 
+#include "Modules/ModuleManager.h"
+#include "Serialization/MemoryReader.h"
+
 #include "NNERuntimeOpenVINOModule.h"
 
 bool IsFileSupported(const FString& FileType)
@@ -622,10 +625,8 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 	ReleaseShapes(OutputShapes);
 	ReleaseTensors(OutputTensors);
 	ov_infer_request_free(InferRequest);
-	ov_compiled_model_free(CompiledModel);
-	ov_model_free(Model);
-	CompiledModel = nullptr;
-	Model = nullptr;
+
+	// Model/Compiled Model remain valid for the lifetime of the ModelInstance.
 
 	return UE::NNE::EResultStatus::Ok;
 }

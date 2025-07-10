@@ -30,8 +30,10 @@
 #include "NNE.h"
 #include "NNERuntimeOpenVINOCommon.h"
 
-#include "Modules/ModuleManager.h"
+#include "HAL/FileManager.h"
 #include "Interfaces/IPluginManager.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FNNERuntimeOpenVINO, NNERuntimeOpenVINO)
 

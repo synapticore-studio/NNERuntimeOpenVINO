@@ -52,7 +52,7 @@ class UNNERuntimeOpenVINOGpuSettings : public UObject
 public:
 
 	/** GPU override in cases where multiple GPUs are present. */
-	UPROPERTY(Config, EditAnywhere)
+	UPROPERTY(Config, EditAnywhere, Category="GpuPreference")
 	int32 MultiGpuPreference;
 
 private:

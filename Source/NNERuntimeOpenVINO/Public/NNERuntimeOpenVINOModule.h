@@ -24,7 +24,9 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
+#include "UObject/WeakObjectPtr.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "openvino/c/ov_core.h"
