@@ -44,30 +44,23 @@ FModelInstanceOpenVINONpu::~FModelInstanceOpenVINONpu()
 	{
 		ov_compiled_model_free(CompiledModel);
 	}
-
-	if (Model)
-	{
-		ov_model_free(Model);
-	}
 }
 
 bool FModelInstanceOpenVINONpu::Init(TSharedRef<UE::NNE::FSharedModelData> ModelData)
 {
 	const FString DeviceName(TEXT("NPU"));
-	if (!InitModelInstance(ModelData, Model, CompiledModel, DeviceName))
+	if (!InitModelInstance(ModelData, CompiledModel, DeviceName))
 	{
 		return false;
 	}
 
 	bool bResult = true;
 
-	if (!InitModelTensorDescs(InputSymbolicTensors, OutputSymbolicTensors, Model))
+	if (!InitModelTensorDescs(InputSymbolicTensors, OutputSymbolicTensors, CompiledModel))
 	{
 		bResult = false;
 		ov_compiled_model_free(CompiledModel);
-		ov_model_free(Model);
 		CompiledModel = nullptr;
-		Model = nullptr;
 	}
 
 	return bResult;
@@ -95,9 +88,9 @@ TConstArrayView<UE::NNE::FTensorShape> FModelInstanceOpenVINONpu::GetOutputTenso
 
 UE::NNE::EResultStatus FModelInstanceOpenVINONpu::SetInputTensorShapes(TConstArrayView<UE::NNE::FTensorShape> InInputShapes)
 {
-	if (!Model)
+	if (!CompiledModel)
 	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Invalid model."));
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Invalid compiled model."));
 		return UE::NNE::EResultStatus::Fail;
 	}
 
@@ -123,7 +116,7 @@ UE::NNE::EResultStatus FModelInstanceOpenVINONpu::SetInputTensorShapes(TConstArr
 
 UE::NNE::EResultStatus FModelInstanceOpenVINONpu::RunSync(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors)
 {
-	return ModelInfer(InInputTensors, InOutputTensors, Model, CompiledModel);
+	return ModelInfer(InInputTensors, InOutputTensors, CompiledModel);
 }
 
 FModelOpenVINONpu::FModelOpenVINONpu(TSharedRef<UE::NNE::FSharedModelData> InModelData)

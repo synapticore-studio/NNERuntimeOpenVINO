@@ -170,7 +170,7 @@ void ReleaseTensors(TArray<ov_tensor_t*>& Tensors)
 	}
 }
 
-bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName)
+bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_compiled_model_t*& CompiledModel, const FString& DeviceName)
 {
 	FMemoryReaderView MemoryReader(ModelData->GetView());
 
@@ -221,6 +221,7 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model
 		return false;
 	}
 
+	ov_model_t* Model = nullptr;
 	ov_status_e LoadResult = ov_status_e::OK;
 	if (!bHasWeights)
 	{
@@ -254,28 +255,36 @@ bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model
 
 	if (LoadResult)
 	{
+		if (Model)
+		{
+			ov_model_free(Model);
+		}
+
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to read the model."));
 		return false;
 	}
 
-	if (ov_core_compile_model(&OVCore, Model, TCHAR_TO_ANSI(*DeviceName), 0, &CompiledModel))
+	ov_status_e CompileResult = ov_core_compile_model(&OVCore, Model, TCHAR_TO_ANSI(*DeviceName), 0, &CompiledModel);
+
+	// Once the model is compiled we no longer need to hang onto the source model.
+	ov_model_free(Model);
+	Model = nullptr;
+
+	if (CompileResult)
 	{
-		ov_model_free(Model);
-		Model = nullptr;
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to compile the model."));
-		return false;
 	}
 
-	return true;
+	return CompileResult == ov_status_e::OK;
 }
 
-bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE::FTensorDesc>& OutDescs, ov_model_t*& Model)
+bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE::FTensorDesc>& OutDescs, ov_compiled_model*& CompiledModel)
 {
 	size_t InputSize = 0;
 	size_t OutputSize = 0;
-	if (ov_model_inputs_size(Model, &InputSize) || ov_model_outputs_size(Model, &OutputSize))
+	if (ov_compiled_model_inputs_size(CompiledModel, &InputSize) || ov_compiled_model_outputs_size(CompiledModel, &OutputSize))
 	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Couldn't get input/Output size for model."));
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Couldn't get input/output size for the compiled model."));
 		return false;
 	}
 
@@ -285,7 +294,7 @@ bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE:
 	for (size_t i = 0; i < InputSize; ++i)
 	{
 		ov_output_const_port_t*& InputPort = InputPorts.AddZeroed_GetRef();
-		if (ov_model_const_input_by_index(Model, i, &InputPort))
+		if (ov_compiled_model_input_by_index(CompiledModel, i, &InputPort))
 		{
 			ReleasePorts(InputPorts);
 			ReleasePartialShapes(InputPartialShapes);
@@ -342,7 +351,7 @@ bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE:
 	for (size_t i = 0; i < OutputSize; ++i)
 	{
 		ov_output_const_port_t*& OutputPort = OutputPorts.AddZeroed_GetRef();
-		if (ov_model_const_output_by_index(Model, i, &OutputPort))
+		if (ov_compiled_model_output_by_index(CompiledModel, i, &OutputPort))
 		{
 			ReleasePorts(OutputPorts);
 			ReleasePartialShapes(OutputPartialShapes);
@@ -396,7 +405,7 @@ bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE:
 	return true;
 }
 
-UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel)
+UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors, ov_compiled_model_t*& CompiledModel)
 {
 	if (InInputTensors.IsEmpty() || InOutputTensors.IsEmpty())
 	{
@@ -404,9 +413,9 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 		return UE::NNE::EResultStatus::Fail;
 	}
 
-	if (!Model || !CompiledModel)
+	if (!CompiledModel)
 	{
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Invalid model."));
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Invalid compiled model."));
 		return UE::NNE::EResultStatus::Fail;
 	}
 
@@ -414,10 +423,8 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 	if (ov_compiled_model_create_infer_request(CompiledModel, &InferRequest))
 	{
 		ov_compiled_model_free(CompiledModel);
-		ov_model_free(Model);
 		CompiledModel = nullptr;
-		Model = nullptr;
-		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to compile the model."));
+		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to create the inference request."));
 		return UE::NNE::EResultStatus::Fail;
 	}
 
@@ -428,16 +435,14 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 	for (int32 i = 0; i < InInputTensors.Num(); ++i)
 	{
 		ov_output_const_port_t*& InputPort = InputPorts.AddZeroed_GetRef();
-		if (ov_model_const_input_by_index(Model, i, &InputPort))
+		if (ov_compiled_model_input_by_index(CompiledModel, i, &InputPort))
 		{
 			ReleasePorts(InputPorts);
 			ReleaseShapes(InputShapes);
 			ReleaseTensors(InputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get input config."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -450,9 +455,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(InputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get input shape."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -465,9 +468,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(InputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get input type."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -481,9 +482,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(InputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to create tensor from input data."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -495,9 +494,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(InputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to set input tensor for infer request."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -510,7 +507,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 	for (int32 i = 0; i < InOutputTensors.Num(); ++i)
 	{
 		ov_output_const_port_t*& OutputPort = OutputPorts.AddZeroed_GetRef();
-		if (ov_model_const_output_by_index(Model, i, &OutputPort))
+		if (ov_compiled_model_output_by_index(CompiledModel, i, &OutputPort))
 		{
 			ReleasePorts(InputPorts);
 			ReleaseShapes(InputShapes);
@@ -520,9 +517,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(OutputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get output config."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -538,9 +533,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(OutputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get output shape."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -557,9 +550,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(OutputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to get output type."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -576,9 +567,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(OutputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to create tensor from output data."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -593,9 +582,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 			ReleaseTensors(OutputTensors);
 			ov_infer_request_free(InferRequest);
 			ov_compiled_model_free(CompiledModel);
-			ov_model_free(Model);
 			CompiledModel = nullptr;
-			Model = nullptr;
 			UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to set output tensor for infer request."));
 			return UE::NNE::EResultStatus::Fail;
 		}
@@ -611,9 +598,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 		ReleaseTensors(OutputTensors);
 		ov_infer_request_free(InferRequest);
 		ov_compiled_model_free(CompiledModel);
-		ov_model_free(Model);
 		CompiledModel = nullptr;
-		Model = nullptr;
 		UE_LOG(LogNNERuntimeOpenVINO, Error, TEXT("Failed to execute infer request."));
 		return UE::NNE::EResultStatus::Fail;
 	}
@@ -626,7 +611,7 @@ UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> In
 	ReleaseTensors(OutputTensors);
 	ov_infer_request_free(InferRequest);
 
-	// Model/Compiled Model remain valid for the lifetime of the ModelInstance.
+	// Compiled Model remains valid for the lifetime of the ModelInstance.
 
 	return UE::NNE::EResultStatus::Ok;
 }

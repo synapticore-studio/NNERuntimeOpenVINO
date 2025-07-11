@@ -51,8 +51,8 @@ void ReleasePartialShapes(TArray<ov_partial_shape_t>& Shapes);
 
 void ReleaseTensors(TArray<ov_tensor_t*>& Tensors);
 
-bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel, const FString& DeviceName);
+bool InitModelInstance(TSharedRef<UE::NNE::FSharedModelData> ModelData, ov_compiled_model_t*& CompiledModel, const FString& DeviceName);
 
-bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE::FTensorDesc>& OutDescs, ov_model_t*& Model);
+bool InitModelTensorDescs(TArray<UE::NNE::FTensorDesc>& InDescs, TArray<UE::NNE::FTensorDesc>& OutDescs, ov_compiled_model_t*& CompiledModel);
 
-UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors, ov_model_t*& Model, ov_compiled_model_t*& CompiledModel);
+UE::NNE::EResultStatus ModelInfer(TConstArrayView<UE::NNE::FTensorBindingCPU> InInputTensors, TConstArrayView<UE::NNE::FTensorBindingCPU> InOutputTensors, ov_compiled_model_t*& CompiledModel);

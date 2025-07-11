@@ -81,7 +81,6 @@ private:
 	TArray<UE::NNE::FTensorDesc> InputSymbolicTensors;
 	TArray<UE::NNE::FTensorDesc> OutputSymbolicTensors;
 
-	ov_model_t* Model = nullptr;
 	ov_compiled_model_t* CompiledModel = nullptr;
 };
 
