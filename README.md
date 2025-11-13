@@ -37,7 +37,7 @@ Models are read and compiled at runtime when the ModelInstance is created.
 ## Platform Support
 Windows and Linux are supported. For a full list of supported OS versions, please refer to: https://docs.openvino.ai/2025/about-openvino/release-notes-openvino/system-requirements.html
 
-Prebuilt libraries for the `2025.1.0` release can be found in:
+Prebuilt libraries can be found in:
 
 `Binaries\openvino\<platform>`
 
