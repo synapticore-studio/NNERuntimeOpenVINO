@@ -4,6 +4,8 @@
 </a>
 
 # NNERuntimeOpenVINO
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/N4N71WOHZ3)
 Intel's Unreal Engine OpenVINO plugin for NNE.
 
 ## Device & Model Support
